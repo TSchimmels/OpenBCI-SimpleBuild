@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data & Models (too large for git)
+data/raw/*.npz
+data/processed/*.npz
+models/*.pkl
+models/*.pt
+models/*.labels.json
+
+# Credentials
+.env
+*.key
+*.pem
+
+# Claude
+.claude/
+
+# MSSQL artifact
+mssql

@@ -1,0 +1,139 @@
+##############################################
+# EEG Cursor Configuration
+# Pure EEG cursor control — no eye tracking.
+# All tunable parameters live here.
+# No magic numbers in code.
+##############################################
+
+board:
+  # SYNTHETIC_BOARD=-1, CYTON_BOARD=0, CYTON_DAISY_BOARD=2
+  board_id: -1
+  serial_port: ""  # e.g. COM3 (Windows) or /dev/ttyUSB0 (Linux)
+  # Sampling rates: Cyton=250Hz, Cyton+Daisy=125Hz, Synthetic=250Hz
+  # Auto-detected from board_id, but override here for synthetic
+  sampling_rate_override: null
+  channel_count: 16
+
+preprocessing:
+  bandpass_low: 1.0
+  bandpass_high: 40.0  # 40Hz for 16ch@125Hz (Nyquist=62.5Hz)
+  bandpass_order: 4
+  notch_freq: 60.0  # 50.0 for Europe
+  notch_quality: 30.0
+  car_enabled: true
+  laplacian_enabled: false  # Enable for MI-specific enhancement
+  # MI-specific bandpass (used by BOTH training and real-time)
+  mi_bandpass_low: 8.0
+  mi_bandpass_high: 30.0
+  artifact_threshold_uv: 100.0
+
+features:
+  # CSP (Common Spatial Patterns)
+  csp_n_components: 12  # 6 pairs for 16ch
+  csp_regularization: "ledoit_wolf"
+
+  # Chaos / Nonlinear features (antropy)
+  chaos_enabled: true
+  chaos_features:
+    - "hjorth"
+    - "perm_entropy"
+    - "spectral_entropy"
+    - "higuchi_fd"
+    - "sample_entropy"
+  # Channel indices for chaos features (motor cortex channels)
+  # Map: 0=C3, 1=C4, 2=Cz, 3=FC3, 4=FC4, 5=CP3, 6=CP4
+  chaos_channels: [0, 1, 2, 3, 4, 5, 6]
+
+  # Band power features
+  bandpower_enabled: true
+  bandpower_bands:
+    mu: [8, 12]
+    beta: [13, 30]
+  bandpower_channels: [0, 1, 2]  # C3, C4, Cz
+
+classification:
+  # Model type: csp_lda, riemannian, eegnet
+  model_type: "csp_lda"
+  lda_shrinkage: "auto"
+
+  # EEGNet parameters (PyTorch)
+  eegnet:
+    F1: 8           # Temporal filters
+    D: 2            # Depth multiplier
+    F2: 16          # Pointwise filters
+    kernel_length: 64
+    dropout: 0.5
+    epochs: 300
+    batch_size: 32
+    learning_rate: 0.001
+    weight_decay: 0.001
+    patience: 50    # Early stopping patience
+
+  # Riemannian (pyRiemann)
+  riemannian:
+    metric: "riemann"
+    estimator: "oas"
+
+control:
+  # Pure EEG cursor control (no eye tracking)
+  mode: "pure_eeg"
+  dead_zone: 0.15
+  max_velocity: 25       # pixels per update step
+  update_rate_hz: 16     # Classification updates per second
+  smoothing_alpha: 0.3   # EMA weight on new value (0=max smooth, 1=no smooth)
+  confidence_threshold: 0.5  # Min probability to trigger movement
+
+  # Click detection via sustained MI
+  click:
+    method: "sustained_mi"       # Sustained high-confidence triggers click
+    hold_duration_s: 0.8         # Seconds of sustained class to trigger click
+    confidence_threshold: 0.7    # Higher threshold for click
+    double_click_window_s: 1.5   # Window for double-click detection
+    cooldown_s: 0.5              # Minimum time between clicks
+
+  # Direction mapping (class name -> cursor direction)
+  direction_map:
+    left_hand: "left"
+    right_hand: "right"
+    feet: "down"
+    tongue: "up"
+
+training:
+  paradigm: "graz"
+  n_classes: 5
+  classes:
+    - "rest"
+    - "left_hand"
+    - "right_hand"
+    - "feet"
+    - "tongue"
+  n_trials_per_class: 40
+  n_runs: 2          # Runs per session (with break between)
+
+  # Trial timing (seconds)
+  fixation_duration: 2.0
+  cue_duration: 1.25
+  imagery_duration: 4.0
+  rest_duration_min: 1.5
+  rest_duration_max: 3.0
+
+  # Analysis window (seconds after cue onset)
+  classification_window_start: 1.5
+  classification_window_end: 4.0
+
+  # Audio
+  beep_frequency: 1000
+  beep_duration_ms: 70
+
+ui:
+  signal_window_s: 4
+  plot_update_ms: 50
+  show_fft: true
+  show_classifier_output: true
+  feedback_type: "bar"  # bar, cursor, none
+
+paths:
+  data_dir: "data"
+  models_dir: "models"
+  raw_data_dir: "data/raw"
+  processed_data_dir: "data/processed"
