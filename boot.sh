@@ -10,6 +10,7 @@
 #   bash boot.sh test         — Run synthetic pipeline test
 #   bash boot.sh calibrate    — Collect training data (Graz paradigm)
 #   bash boot.sh train        — Train classifier on last recording
+#   bash boot.sh erp          — ERP signal trainer (data collection + feedback)
 #   bash boot.sh run          — Launch the EEG cursor
 #   bash boot.sh gui          — Launch the GUI
 #   bash boot.sh pytest       — Run unit tests
@@ -108,10 +109,11 @@ print_menu() {
     echo -e "    ${GREEN}1${NC})  Test synthetic pipeline    ${DIM}(no hardware needed)${NC}"
     echo -e "    ${GREEN}2${NC})  Collect training data       ${DIM}(Graz paradigm — needs OpenBCI)${NC}"
     echo -e "    ${GREEN}3${NC})  Train classifier            ${DIM}(on latest recording)${NC}"
-    echo -e "    ${GREEN}4${NC})  Launch EEG Cursor            ${DIM}(real-time cursor control)${NC}"
-    echo -e "    ${MAGENTA}5${NC})  Launch GUI                   ${DIM}(graphical interface)${NC}"
-    echo -e "    ${CYAN}6${NC})  Run unit tests"
-    echo -e "    ${CYAN}7${NC})  Run full pipeline test       ${DIM}(synth → train → run)${NC}"
+    echo -e "    ${GREEN}4${NC})  ERP Signal Trainer           ${DIM}(data collection + ERP feedback)${NC}"
+    echo -e "    ${GREEN}5${NC})  Launch EEG Cursor            ${DIM}(real-time cursor control)${NC}"
+    echo -e "    ${MAGENTA}6${NC})  Launch GUI                   ${DIM}(graphical interface)${NC}"
+    echo -e "    ${CYAN}7${NC})  Run unit tests"
+    echo -e "    ${CYAN}8${NC})  Run full pipeline test       ${DIM}(synth → train → run)${NC}"
     echo ""
     echo -e "    ${DIM}0${NC})  Exit"
     echo ""
@@ -178,6 +180,22 @@ do_train() {
     echo "  Next step: Launch the EEG cursor (option 4)"
 }
 
+do_erp() {
+    echo -e "\n${CYAN}${BOLD}Starting ERP Signal Trainer...${NC}\n"
+    echo -e "  This tool collects EEG data while showing real-time ERP feedback."
+    echo -e "  You do NOT need a trained model — this is for signal exploration."
+    echo -e ""
+    echo -e "${YELLOW}  Make sure your OpenBCI board is connected (or use synthetic mode).${NC}"
+    echo -e "${YELLOW}  Press ENTER when ready (or Ctrl+C to cancel)...${NC}"
+    read -r
+
+    python "$PROJECT_DIR/scripts/erp_trainer.py" --verbose
+
+    echo -e "\n${GREEN}${BOLD}ERP session complete!${NC}"
+    echo "  Check data/raw/ for the saved .npz file."
+    echo "  To review: python scripts/erp_trainer.py --review data/raw/erp_session_*.npz"
+}
+
 do_run() {
     local latest_model=$(find_latest_file "$MODELS_DIR" "pkl")
 
@@ -238,13 +256,14 @@ if [ "${1:-}" != "" ]; then
         test)       do_test_synthetic ;;
         calibrate)  do_calibrate ;;
         train)      do_train ;;
+        erp)        do_erp ;;
         run)        do_run ;;
         gui)        do_gui ;;
         pytest)     do_pytest ;;
         full)       do_full_pipeline ;;
         *)
             echo "Unknown command: $1"
-            echo "Usage: bash boot.sh [test|calibrate|train|run|gui|pytest|full]"
+            echo "Usage: bash boot.sh [test|calibrate|train|erp|run|gui|pytest|full]"
             exit 1
             ;;
     esac
@@ -269,10 +288,11 @@ while true; do
         1) do_test_synthetic ;;
         2) do_calibrate ;;
         3) do_train ;;
-        4) do_run ;;
-        5) do_gui ;;
-        6) do_pytest ;;
-        7) do_full_pipeline ;;
+        4) do_erp ;;
+        5) do_run ;;
+        6) do_gui ;;
+        7) do_pytest ;;
+        8) do_full_pipeline ;;
         0) echo -e "\n${DIM}Goodbye.${NC}\n"; exit 0 ;;
         *) echo -e "\n${RED}Invalid choice.${NC}"; sleep 1 ;;
     esac

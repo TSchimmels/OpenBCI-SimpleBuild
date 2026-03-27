@@ -292,54 +292,198 @@ OpenBCI_SimpleBuild/
 
 ## Installation
 
+### Prerequisites
+
+- **Python 3.10+** (check with `python3 --version`)
+- **OpenBCI Cyton + Daisy** board (optional — synthetic mode works without hardware)
+- **Linux / WSL2** recommended (also works on macOS/Windows with minor adjustments)
+
+### One-Command Install
+
 ```bash
 # Clone the repository
-git clone https://github.com/TSchimmels/OpenBCI-SimpleBuild.git
+git clone https://github.com/UA-Consciousness-Studies-Club/OpenBCI-SimpleBuild.git
 cd OpenBCI-SimpleBuild
 
-# Run the automated installer (creates venv, installs all deps, validates)
+# Run the automated installer
 bash install.sh
+```
 
-# Or use the interactive launcher
+The installer will:
+1. Create a Python virtual environment (`.venv/`)
+2. Detect your GPU (NVIDIA CUDA auto-detected for EEGNet acceleration)
+3. Install all Python dependencies (~15 packages)
+4. Install system libraries (SDL2 for audio, xdotool for cursor control)
+5. Create project directories (`data/`, `models/`, `notebooks/`)
+6. Validate every import
+7. Run a BrainFlow smoke test with the synthetic board
+
+### Quick Test (No Hardware Needed)
+
+```bash
+source .venv/bin/activate
+python scripts/test_synthetic.py --verbose    # Test full pipeline
+python -m pytest tests/ -v                     # Run unit tests
+```
+
+### Interactive Launcher
+
+```bash
 bash boot.sh
 ```
 
-### Quick Test (No Hardware)
-
-```bash
-# Activate the virtual environment
-source .venv/bin/activate
-
-# Run the synthetic pipeline test
-python scripts/test_synthetic.py --verbose
-
-# Run unit tests
-python -m pytest tests/ -v
-```
+This opens a menu-driven interface where you can run any operation with a single keypress.
 
 ---
 
-## Usage
+## How to Use — Step by Step
 
-### 1. Collect Training Data
+### The Easy Way: `bash boot.sh`
+
+The boot launcher gives you a numbered menu. Just type a number and press Enter.
+
+### The Full Workflow (Manual Commands)
+
+There are **three paths** depending on what you want to do:
+
+---
+
+### Path A: Just Explore Your Brain Signals (No Model Needed)
+
+Use the **ERP Signal Trainer** to collect EEG data and see your motor imagery signals in real time. No classifier training required.
+
+```bash
+source .venv/bin/activate
+
+# Start the ERP trainer (live collection + visual feedback)
+python scripts/erp_trainer.py --verbose
+```
+
+**What happens:**
+1. Connects to your OpenBCI board (or synthetic board if no hardware)
+2. Presents arrow cues (left, right, up, down, rest)
+3. After each trial, updates a 6-panel dashboard showing:
+   - Your **ERP waveforms** (averaged brain response per class)
+   - **ERDS% spectrogram** (time-frequency power map — look for blue = mu ERD)
+   - **Mu band power** timecourse (the signal that drives the cursor)
+   - **Scalp topographic map** (which brain areas are active)
+   - **r² discriminability** (which channels best separate your classes)
+   - **SNR feedback** (signal quality per channel)
+4. Saves all data to `data/raw/erp_session_YYYYMMDD_HHMMSS.npz`
+
+**To review a previous session:**
+```bash
+python scripts/erp_trainer.py --review data/raw/erp_session_20260326_143000.npz
+```
+
+**What to look for:**
+- **Blue regions** in the spectrogram at 8-12 Hz (mu band) during imagery = good ERD
+- **Contralateral activation**: Left hand imagery should show stronger ERD at C4 (right hemisphere), and vice versa
+- **High r² values** on motor cortex channels (C3, C4, Cz) = your signal is classifiable
+
+---
+
+### Path B: Collect Data + Train a Classifier
+
+This is the standard BCI calibration workflow.
+
+#### Step 1: Collect Training Data
 ```bash
 python scripts/collect_training_data.py --verbose
 ```
-Follow the on-screen arrows and imagine the indicated movements.
 
-### 2. Train a Classifier
+**What happens:**
+- Full-screen Graz paradigm with arrow cues
+- 5 classes x 40 trials = 200 trials (~25 minutes)
+- Saves to `data/raw/session_YYYYMMDD_HHMMSS.npz`
+
+**Tips for good data:**
+- Stay relaxed, minimize eye blinks and jaw tension
+- For **left hand**: imagine squeezing your left fist rhythmically
+- For **right hand**: imagine squeezing your right fist
+- For **feet**: imagine curling your toes or pressing a pedal
+- For **tongue**: imagine moving your tongue left-right
+- For **rest**: just relax and breathe normally
+
+#### Step 2: Train a Classifier
 ```bash
-python scripts/train_model.py --data-path data/raw/session_YYYYMMDD_HHMMSS.npz --verbose
+python scripts/train_model.py \
+    --data-path data/raw/session_YYYYMMDD_HHMMSS.npz \
+    --model-type csp_lda \
+    --verbose
 ```
 
-### 3. Run the EEG Cursor
+**Model options:**
+| Flag | Classifier | When to Use |
+|------|-----------|-------------|
+| `--model-type csp_lda` | CSP + LDA | **Start here.** Fast, works with 40+ trials/class |
+| `--model-type riemannian` | Riemannian MDM | Robust to session drift, good for follow-up sessions |
+| `--model-type eegnet` | EEGNet (CNN) | Deep learning, needs 100+ trials/class for best results |
+
+**Output:**
+- Prints cross-validation accuracy (should be above 30% for 5 classes, chance = 20%)
+- Saves model to `models/csp_lda_YYYYMMDD_HHMMSS.pkl`
+- Saves label mapping to `models/csp_lda_YYYYMMDD_HHMMSS.labels.json`
+
+#### Step 3: Run the Cursor
 ```bash
-python scripts/run_eeg_cursor.py --model models/csp_lda_YYYYMMDD_HHMMSS.pkl --verbose
+python scripts/run_eeg_cursor.py \
+    --model models/csp_lda_YYYYMMDD_HHMMSS.pkl \
+    --verbose
 ```
 
-### 4. Or Use the GUI
+**What happens:**
+- Connects to your board and starts classifying at 16 Hz
+- Moves your actual mouse cursor based on your motor imagery
+- Prints status every 3 seconds (class, direction, confidence, latency)
+- **Ctrl+C** to stop
+
+---
+
+### Path C: Use the GUI
+
 ```bash
 python scripts/gui.py
+```
+
+A full graphical interface with:
+- System status (board, model, GPU detection)
+- One-click buttons for every operation
+- Real-time EEG signal display (if pyqtgraph is installed)
+- Live log output
+- Model type selector (dropdown)
+
+---
+
+### Quick Reference
+
+| What you want | Command |
+|---------------|---------|
+| Test without hardware | `python scripts/test_synthetic.py` |
+| Explore your brain signals | `python scripts/erp_trainer.py` |
+| Review saved ERP data | `python scripts/erp_trainer.py --review data/raw/FILE.npz` |
+| Collect calibration data | `python scripts/collect_training_data.py` |
+| Train a model | `python scripts/train_model.py --data-path FILE.npz` |
+| Control the cursor | `python scripts/run_eeg_cursor.py --model FILE.pkl` |
+| Everything via GUI | `python scripts/gui.py` |
+| Everything via menu | `bash boot.sh` |
+| Run unit tests | `python -m pytest tests/ -v` |
+
+### Configuration
+
+All parameters are in `config/settings.yaml`. Key things you might want to change:
+
+```yaml
+board:
+  board_id: 2          # Change to 2 for real Cyton+Daisy (default: -1 for synthetic)
+  serial_port: "COM3"  # Your board's serial port
+
+control:
+  max_velocity: 25     # Cursor speed (pixels per frame)
+  confidence_threshold: 0.5  # Lower = more responsive, higher = more precise
+
+training:
+  n_trials_per_class: 40  # More trials = better model, but longer session
 ```
 
 ---
