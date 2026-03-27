@@ -21,7 +21,7 @@ import logging
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
-from scipy.signal import morlet2, fftconvolve
+from scipy.signal import fftconvolve
 
 logger = logging.getLogger(__name__)
 
