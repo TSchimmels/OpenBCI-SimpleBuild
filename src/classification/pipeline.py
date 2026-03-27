@@ -311,9 +311,21 @@ class ClassifierFactory:
         n_classes: int = train_config.get("n_classes", 3)
 
         # Compute n_samples from sampling rate and classification window.
-        # Default: 125 Hz * (4.0 - 1.5) s = 312 samples; but if not
-        # available, fall back to a sensible default.
-        sampling_rate: int = board_config.get("sampling_rate_override", 125) or 125
+        # Query the actual board sampling rate via BrainFlow if possible;
+        # fall back to sampling_rate_override or 250 (synthetic board default).
+        sampling_rate_raw = board_config.get("sampling_rate_override", None)
+        if sampling_rate_raw is not None:
+            sampling_rate: int = int(sampling_rate_raw)
+        else:
+            # Query BrainFlow for the actual board's native rate
+            try:
+                from brainflow.board_shim import BoardShim, BoardIds
+                board_id = int(board_config.get("board_id", BoardIds.SYNTHETIC_BOARD))
+                if board_id == -1:
+                    board_id = BoardIds.SYNTHETIC_BOARD
+                sampling_rate = int(BoardShim.get_sampling_rate(board_id))
+            except Exception:
+                sampling_rate = 250  # Safe default (synthetic board)
         window_start: float = train_config.get("classification_window_start", 1.5)
         window_end: float = train_config.get("classification_window_end", 4.0)
         n_samples: int = int(sampling_rate * (window_end - window_start))

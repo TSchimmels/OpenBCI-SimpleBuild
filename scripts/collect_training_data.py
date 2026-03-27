@@ -152,13 +152,18 @@ def main() -> None:
         filename = f"session_{timestamp}.npz"
         save_path = output_dir / filename
 
-        recorder._events = events  # Restore events for save()
-        # Save manually since stop() already pulled the data
+        # Save with full metadata (sf, eeg_channels) for downstream tools
         import json
         import numpy as np
         save_path.parent.mkdir(parents=True, exist_ok=True)
         events_json = json.dumps(events)
-        np.savez(str(save_path), data=raw_data, events_json=events_json)
+        np.savez(
+            str(save_path),
+            data=raw_data,
+            events_json=events_json,
+            sf=np.array(sf),
+            eeg_channels=np.array(board.get_eeg_channels()),
+        )
 
         logger.info("Session saved to %s", save_path)
 

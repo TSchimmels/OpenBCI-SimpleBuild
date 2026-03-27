@@ -220,7 +220,8 @@ def main() -> None:
     # Save label mapping alongside the model so runtime can use the same encoding
     import json
     label_map_path = model_path.with_suffix('.labels.json')
-    json.dump(label_map, open(str(label_map_path), 'w'))
+    with open(str(label_map_path), 'w') as f:
+        json.dump(label_map, f)
     logger.info("Label mapping saved to %s", label_map_path)
 
     # ------------------------------------------------------------------
