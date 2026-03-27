@@ -1,8 +1,8 @@
 """Mouse cursor control via pyautogui.
 
 Provides a thin wrapper around pyautogui that enforces screen-bound
-clamping and exposes both absolute and relative movement for eye-tracking
-and pure motor-imagery control modes respectively.
+clamping and exposes both absolute and relative movement for absolute positioning
+and MI velocity-based control.
 """
 
 from typing import Tuple
@@ -38,7 +38,7 @@ class MouseController:
 
         Coordinates are clamped to the screen bounds so the call never
         raises an ``FailSafeException`` due to out-of-range values.
-        This is the primary interface for eye-tracking-guided control.
+        This is the primary interface for absolute positioning-guided control.
 
         Args:
             x: Target x-coordinate in pixels.

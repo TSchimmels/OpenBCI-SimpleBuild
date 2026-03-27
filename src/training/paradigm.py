@@ -114,7 +114,7 @@ class GrazParadigm:
         else:
             screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 
-        pygame.display.set_caption("Mental Mouse — Graz Paradigm")
+        pygame.display.set_caption("EEG Cursor — Graz Paradigm")
         pygame.mouse.set_visible(False)
 
         clock = pygame.time.Clock()

@@ -1,6 +1,6 @@
 """Common Spatial Patterns (CSP) feature extraction.
 
-Wraps MNE's CSP implementation for use in the Mental Mouse pipeline.
+Wraps MNE's CSP implementation for use in the EEG Cursor pipeline.
 CSP learns spatial filters that maximize variance for one class while
 minimizing it for another — the gold standard for MI-based BCIs.
 

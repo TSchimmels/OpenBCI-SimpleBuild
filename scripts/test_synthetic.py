@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """End-to-end pipeline test with the BrainFlow SYNTHETIC_BOARD.
 
-Verifies every stage of the Mental Mouse pipeline without requiring
+Verifies every stage of the EEG Cursor pipeline without requiring
 real EEG hardware:
 
     1. Board connection (synthetic, board_id=-1)

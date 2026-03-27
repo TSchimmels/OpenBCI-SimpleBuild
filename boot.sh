@@ -177,7 +177,7 @@ do_train() {
         --verbose
 
     echo -e "\n${GREEN}${BOLD}Training complete!${NC}"
-    echo "  Next step: Launch the EEG cursor (option 4)"
+    echo "  Next step: Launch the EEG cursor (option 5)"
 }
 
 do_erp() {
