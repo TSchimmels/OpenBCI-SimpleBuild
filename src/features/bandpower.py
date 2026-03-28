@@ -273,24 +273,21 @@ class BandPowerExtractor:
         return result
 
     def _compute_ratio(self, band_powers: List[float]) -> float:
-        """Compute ERD/ERS ratio from band powers.
+        """Compute power ratio from band powers.
 
-        The ratio is defined as first_band / second_band in the sorted
-        band name order. For the standard {"mu": [8,12], "beta": [13,30]}
+        Returns the ratio of the first to the second band in alphabetically
+        sorted order. For the standard {"mu": [8,12], "beta": [13,30]}
         config, sorted order is ["beta", "mu"], so the ratio is
-        beta_power / mu_power. However, the canonical ERD/ERS ratio for
-        MI is mu/beta, so we use: band_powers[mu_index] / band_powers[beta_index].
+        **beta_power / mu_power** (NOT mu/beta).
 
-        For simplicity and generality, this returns:
-            power[first_sorted_band] / power[second_sorted_band]
-
-        with epsilon to avoid division by zero.
+        This ratio is still discriminative for MI classification — the
+        sign/direction of the feature is learned by the classifier.
 
         Args:
             band_powers: Power values in sorted band-name order.
 
         Returns:
-            Power ratio (first / second band).
+            Power ratio: first_sorted_band / second_sorted_band.
         """
         eps = 1e-12
         numerator = band_powers[0]

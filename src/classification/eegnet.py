@@ -378,6 +378,14 @@ class EEGNetClassifier(BaseClassifier):
                 loss.backward()
                 optimiser.step()
 
+                # Max-norm constraint on depthwise conv weights
+                # (Lawhern et al. 2018, Table 2: max_norm=1)
+                with torch.no_grad():
+                    dw = self._model.depthwise.weight
+                    norms = dw.data.norm(2, dim=(2, 3), keepdim=True)
+                    desired = torch.clamp(norms, max=1.0)
+                    dw.data *= desired / (norms + 1e-8)
+
                 train_loss_sum += loss.item() * X_batch.size(0)
                 train_correct += (logits.argmax(dim=1) == y_batch).sum().item()
                 train_total += X_batch.size(0)

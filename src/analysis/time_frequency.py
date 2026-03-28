@@ -96,7 +96,7 @@ class ERDSComputer:
                 n_samples += 1
 
             # Complex Morlet wavelet
-            t = np.arange(n_samples) / self.sf - (n_samples / (2 * self.sf))
+            t = (np.arange(n_samples) - n_samples // 2) / self.sf
             gaussian = np.exp(-t ** 2 / (2 * sigma_t ** 2))
             sinusoid = np.exp(2j * np.pi * freq * t)
             wavelet = gaussian * sinusoid

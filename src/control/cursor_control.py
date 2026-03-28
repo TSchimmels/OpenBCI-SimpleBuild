@@ -126,7 +126,11 @@ class EEGCursorController:
         # 2. Compute target velocity
         if direction is not None:
             # Scale velocity by confidence above threshold
-            effective = (confidence - self._move_threshold) / (1.0 - self._move_threshold)
+            denom = 1.0 - self._move_threshold
+            if denom <= 0:
+                effective = 1.0  # threshold >= 1.0: max speed if somehow reached
+            else:
+                effective = (confidence - self._move_threshold) / denom
             speed = effective * self._max_vel
 
             dx, dy = 0.0, 0.0
