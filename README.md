@@ -228,7 +228,7 @@ Implements the **Graz Motor Imagery Protocol** (Pfurtscheller & Neuper, 2001):
 - ↑ Up arrow = Imagine tongue movement
 - "+" only = Rest (no imagery)
 
-**Default session:** 5 classes × 40 trials/class × 2 runs = 400 total trials (~45 minutes)
+**Default session:** 5 classes × 40 trials/class = 200 total trials split across 2 runs (~32 minutes)
 
 ---
 
@@ -279,7 +279,8 @@ OpenBCI_SimpleBuild/
 ├── tests/                          # Unit tests (pytest)
 │   ├── test_preprocessing.py       # Filter & artifact tests
 │   ├── test_features.py            # CSP, chaos, bandpower tests
-│   └── test_classification.py      # Classifier & factory tests
+│   ├── test_classification.py      # Classifier & factory tests
+│   └── test_control.py             # Mapper, cursor, ERP, ERDS, topo tests
 │
 ├── data/                           # Recorded EEG sessions
 │   ├── raw/                        # .npz files from calibration

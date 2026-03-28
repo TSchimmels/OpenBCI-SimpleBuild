@@ -44,7 +44,6 @@ try:
     matplotlib.use("TkAgg")
     import matplotlib.pyplot as plt
     from matplotlib.gridspec import GridSpec
-    from matplotlib.patches import FancyArrowPatch
     HAS_MPL = True
 except ImportError:
     HAS_MPL = False

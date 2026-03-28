@@ -416,9 +416,13 @@ Several `settings.yaml` keys are declared but never read by any code:
 
 | Key | Purpose | Status |
 |-----|---------|--------|
+| `control.mode` | Control mode selector | Hardcoded to pure_eeg |
 | `control.click.method` | Click detection method selector | Hardcoded to sustained_mi |
+| `training.paradigm` | Paradigm type selector | Hardcoded to Graz |
 | `preprocessing.car_enabled` | Toggle CAR on/off | CAR always applied |
 | `preprocessing.laplacian_enabled` | Toggle Laplacian reference | Never applied |
+| `features.chaos_enabled` | Toggle chaos feature extraction | Never checked |
+| `features.bandpower_enabled` | Toggle band power extraction | Never checked |
 | `ui.signal_window_s` | Live signal display window | GUI does not read this |
 | `ui.plot_update_ms` | Plot refresh rate | GUI does not read this |
 | `ui.show_fft` | Toggle FFT display | GUI does not read this |
