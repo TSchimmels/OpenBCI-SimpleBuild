@@ -1,9 +1,9 @@
 # Audit Report — OpenBCI SimpleBuild (EEG Cursor)
 
 **Date:** 2026-03-27
-**Auditor:** Claude Opus 4.6 (automated deep audit)
+**Auditor:** Automated deep audit
 **Scope:** All 48 files, 11,583 lines
-**Methodology:** 4 parallel validation agents + sequential thinking + Context7 API docs + numerical verification + full test suite
+**Methodology:** 4 parallel validation passes + mathematical verification + full test suite
 
 ---
 
@@ -197,9 +197,8 @@ Both major documentation issues (README trial count, dead config keys) fixed in 
 
 | Location | URL | Status |
 |----------|-----|--------|
-| Origin | github.com/TSchimmels/OpenBCI-SimpleBuild | Primary |
+| Origin | github.com/UA-Consciousness-Studies-Club/OpenBCI-SimpleBuild | Primary |
 | Fork | github.com/QIM-Group/OpenBCI-SimpleBuild | Synced |
-| Fork | github.com/UA-Consciousness-Studies-Club/OpenBCI-SimpleBuild | Synced, personal info removed |
 
 ---
 
@@ -217,5 +216,4 @@ Both major documentation issues (README trial count, dead config keys) fixed in 
 
 ---
 
-*Audit conducted by Claude Opus 4.6 (1M context) across 2026-03-26/27.*
-*Methodology: Sequential thinking + 4 parallel validation agents + Context7 documentation + numerical parity tests + full test suite.*
+*Audit conducted 2026-03-27. Methodology: 4 parallel validation passes + mathematical verification + numerical parity tests + full test suite.*

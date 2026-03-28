@@ -35,9 +35,13 @@ models/*.labels.json
 *.key
 *.pem
 
-# Claude
+# AI assistant metadata (not project content)
 .claude/
+.serena/
+CLAUDE.md
+
+# Test cache
+.pytest_cache/
 
 # MSSQL artifact
 mssql
-CLAUDE.md

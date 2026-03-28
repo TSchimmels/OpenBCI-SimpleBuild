@@ -554,7 +554,7 @@ This project builds on and integrates these open source libraries and research:
 
 ### Derived From
 
-This project is a **pure-EEG adaptation** of the [Mental Mouse](https://github.com/TSchimmels/OPEN_BCI_BUILD) hybrid BCI project, which combined EEG motor imagery with MediaPipe eye tracking and EMG jaw-clench click detection. The adaptation removes all non-EEG modalities and replaces them with:
+This project is a **pure-EEG adaptation** of the Mental Mouse hybrid BCI project, which combined EEG motor imagery with MediaPipe eye tracking and EMG jaw-clench click detection. The adaptation removes all non-EEG modalities and replaces them with:
 - **4-directional MI control** (replacing eye tracking for cursor positioning)
 - **Sustained-imagery click detection** (replacing EMG jaw clench)
 - **5-class paradigm** (up from 3-class in the original)
@@ -595,4 +595,4 @@ The original project underwent a comprehensive audit that identified 8 critical 
 
 This project is provided as-is for research and educational purposes.
 
-Built with [Claude Code](https://claude.ai/claude-code) by Anthropic.
+Open source. Contributions welcome.
