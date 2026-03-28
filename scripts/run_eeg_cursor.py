@@ -387,12 +387,27 @@ def main() -> None:
                     )
                     if seal_info and seal_info.get("should_undo"):
                         if adapt_cfg.get("auto_undo", True):
-                            # Auto-correct: undo last cursor movement
-                            vx, vy = status["velocity"]
-                            cursor._mouse.move_relative(dx=-vx, dy=-vy)
+                            # Auto-correct: reverse cursor by a fixed undo step
+                            # (we cannot replay the exact erroneous velocity since
+                            # it occurred 650ms+ ago across multiple loop iterations)
+                            undo_px = control_cfg.get("max_velocity", 25) * 2
+                            erroneous_class = seal_info.get("predicted_class", -1)
+                            direction_map = control_cfg.get("direction_map", {})
+                            # Reverse the erroneous direction
+                            for cls_name, direction in direction_map.items():
+                                cls_idx = class_names.index(cls_name) if cls_name in class_names else -1
+                                if cls_idx == erroneous_class:
+                                    dx, dy = 0.0, 0.0
+                                    if direction == "left": dx = undo_px
+                                    elif direction == "right": dx = -undo_px
+                                    elif direction == "up": dy = undo_px
+                                    elif direction == "down": dy = -undo_px
+                                    cursor._mouse.move_relative(dx=dx, dy=dy)
+                                    break
                             logger.info(
-                                "AUTO-UNDO: ErrP detected (conf=%.2f), reversed movement",
+                                "AUTO-UNDO: ErrP detected (conf=%.2f), reversed erroneous %s",
                                 erp_res["confidence"],
+                                erp_res.get("predicted_class", "unknown"),
                             )
 
                 # Periodically update model from reward signals

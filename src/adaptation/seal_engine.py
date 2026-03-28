@@ -299,7 +299,10 @@ class SEALAdaptationEngine:
         y_new = np.array(y_new, dtype=np.int64)
 
         # 3. Mix with replay buffer
-        n_replay = int(len(X_new) / self.blend_ratio * (1 - self.blend_ratio))
+        if self.blend_ratio > 0 and self.blend_ratio < 1.0:
+            n_replay = int(len(X_new) / self.blend_ratio * (1 - self.blend_ratio))
+        else:
+            n_replay = 0
         n_replay = min(n_replay, len(self._replay_buffer))
 
         if n_replay > 0:
@@ -333,13 +336,13 @@ class SEALAdaptationEngine:
             logger.warning("SEAL: Model update failed: %s", exc)
             return False
 
+        # Add confirmed-correct data to replay buffer BEFORE clearing
+        for entry in list(self._positive_buffer):
+            self._replay_buffer.append(entry)
+
         # Clear adaptation buffers (keep replay buffer)
         self._positive_buffer.clear()
         self._negative_buffer.clear()
-
-        # Add new confirmed data to replay buffer
-        for entry in list(self._positive_buffer):
-            self._replay_buffer.append(entry)
 
         self.n_adaptations += 1
         return True
@@ -353,6 +356,7 @@ class SEALAdaptationEngine:
         - Riemannian: Refit on combined data
         """
         from src.classification.csp_lda import CSPLDAClassifier
+        from src.classification.eegnet import EEGNetClassifier
         from src.classification.pipeline import RiemannianClassifier
 
         if isinstance(self._classifier, CSPLDAClassifier):
@@ -360,7 +364,7 @@ class SEALAdaptationEngine:
             # The shrinkage LDA handles small sample sizes well
             self._classifier.fit(X, y)
 
-        elif hasattr(self._classifier, '_model') and self._classifier._model is not None:
+        elif isinstance(self._classifier, EEGNetClassifier):
             # EEGNet — fine-tune last 2 layers only
             self._finetune_eegnet(X, y)
 

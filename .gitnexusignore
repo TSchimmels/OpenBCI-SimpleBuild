@@ -1,0 +1,21 @@
+# Mirror .gitignore — GitNexus should not index these
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.claude/
+.serena/
+.gitnexus/
+data/
+models/
+notebooks/
+*.npz
+*.pkl
+*.pt
+.env
+*.key
+*.pem
+CLAUDE.md
+AGENTS.md
+mssql
