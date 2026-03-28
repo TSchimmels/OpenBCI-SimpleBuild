@@ -40,3 +40,4 @@ models/*.labels.json
 
 # MSSQL artifact
 mssql
+CLAUDE.md
