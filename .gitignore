@@ -39,9 +39,11 @@ models/*.labels.json
 .claude/
 .serena/
 CLAUDE.md
+AGENTS.md
 
 # Test cache
 .pytest_cache/
 
 # MSSQL artifact
 mssql
+.gitnexus

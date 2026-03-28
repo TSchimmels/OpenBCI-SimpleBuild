@@ -52,6 +52,8 @@ from src.acquisition.board import BoardManager
 from src.preprocessing.filters import bandpass_filter, common_average_reference
 from src.classification.base import BaseClassifier
 from src.control.cursor_control import EEGCursorController
+from src.adaptation.errp_detector import ErrPP300Detector
+from src.adaptation.seal_engine import SEALAdaptationEngine
 
 
 def parse_args() -> argparse.Namespace:
@@ -254,6 +256,32 @@ def main() -> None:
     logger.info("Cursor controller: %r", cursor)
 
     # ------------------------------------------------------------------
+    # 5b. Create self-adaptation system (ErrP/P300 + SEAL)
+    # ------------------------------------------------------------------
+    adapt_cfg = config.get("adaptation", {})
+    adaptation_enabled = adapt_cfg.get("enabled", True)
+
+    errp_detector = ErrPP300Detector(
+        sf=sf,
+        fcz_idx=adapt_cfg.get("fcz_channel", 14),
+        fz_idx=adapt_cfg.get("fz_channel", 15),
+        p3_idx=adapt_cfg.get("p3_channel", 12),
+        p4_idx=adapt_cfg.get("p4_channel", 13),
+        erp_window_ms=adapt_cfg.get("erp_window_ms", 600),
+        baseline_ms=adapt_cfg.get("baseline_ms", 200),
+        errp_threshold=adapt_cfg.get("errp_threshold", 8.0),
+        p300_threshold=adapt_cfg.get("p300_threshold", 5.0),
+    )
+
+    seal_engine = SEALAdaptationEngine(config)
+    seal_engine.set_classifier(classifier, class_names)
+
+    if adaptation_enabled:
+        logger.info("Self-adaptation ENABLED (ErrP/P300 + SEAL)")
+    else:
+        logger.info("Self-adaptation DISABLED")
+
+    # ------------------------------------------------------------------
     # 6. Start EEG acquisition thread
     # ------------------------------------------------------------------
     train_cfg = config.get("training", {})
@@ -322,6 +350,58 @@ def main() -> None:
 
             # ----- d. Update cursor (movement + click detection) -----
             status = cursor.update(proba, class_names)
+
+            # ----- d2. Self-adaptation (ErrP/P300 + SEAL) -----
+            if adaptation_enabled:
+                now = time.monotonic()
+                predicted_int = int(np.argmax(proba))
+
+                # Feed EEG to the ErrP detector's continuous buffer
+                errp_detector.update_buffer(eeg_window, now)
+
+                # Record this action for ErrP evaluation
+                action_executed = (
+                    status["direction"] is not None or
+                    status["click_event"] is not None
+                )
+                if action_executed:
+                    errp_detector.record_action(
+                        timestamp=now,
+                        predicted_class=status["predicted_class"],
+                        eeg_epoch=filtered,
+                    )
+                    seal_engine.on_prediction(
+                        eeg_epoch=filtered,
+                        predicted_class=predicted_int,
+                        action_time=now,
+                        action_type="click" if status["click_event"] else "move",
+                    )
+
+                # Check for ErrP/P300 responses to past actions
+                erp_results = errp_detector.detect(now)
+                for erp_res in erp_results:
+                    seal_info = seal_engine.on_errp_result(
+                        erp_res["timestamp"],
+                        erp_res["result"],
+                        erp_res["confidence"],
+                    )
+                    if seal_info and seal_info.get("should_undo"):
+                        if adapt_cfg.get("auto_undo", True):
+                            # Auto-correct: undo last cursor movement
+                            vx, vy = status["velocity"]
+                            cursor._mouse.move_relative(dx=-vx, dy=-vy)
+                            logger.info(
+                                "AUTO-UNDO: ErrP detected (conf=%.2f), reversed movement",
+                                erp_res["confidence"],
+                            )
+
+                # Periodically update model from reward signals
+                if seal_engine.maybe_update(now):
+                    stats = seal_engine.get_stats()
+                    logger.info(
+                        "SEAL: Model self-adapted (#%d) — confirmed=%d, corrected=%d",
+                        stats["n_updates"], stats["n_confirmed"], stats["n_corrected"],
+                    )
 
             # ----- e. Timing and status -----
             loop_elapsed = time.monotonic() - loop_start

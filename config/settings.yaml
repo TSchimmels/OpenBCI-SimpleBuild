@@ -132,6 +132,28 @@ ui:
   show_classifier_output: true
   feedback_type: "bar"  # bar, cursor, none
 
+adaptation:
+  enabled: true
+  # ErrP/P300 detection
+  errp_threshold: 8.0        # Combined ErrP score threshold (µV)
+  p300_threshold: 5.0        # P300 peak threshold (µV)
+  erp_window_ms: 600         # Post-action ERP window (ms)
+  baseline_ms: 200           # Pre-action baseline (ms)
+  # Electrode indices for ErrP/P300 (16ch 10-20 layout)
+  fcz_channel: 14            # Cz as FCz proxy (frontocentral, ErrP)
+  fz_channel: 15             # Fz supplement (frontocentral, ErrP)
+  p3_channel: 12             # P3 parietal (P300)
+  p4_channel: 13             # P4 parietal (P300)
+  # SEAL adaptation engine
+  update_interval_s: 30      # Seconds between model updates
+  min_samples_for_update: 5  # Minimum reward signals before update
+  replay_buffer_size: 500    # Original calibration data preserved
+  adaptation_buffer_size: 100
+  blend_ratio: 0.3           # 30% new data, 70% replay per update
+  covariance_alpha: 0.05     # Exponential weighting for covariance updates
+  # Auto-undo on ErrP detection
+  auto_undo: true
+
 paths:
   data_dir: "data"
   models_dir: "models"
