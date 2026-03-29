@@ -201,23 +201,43 @@ non-invasive BCI can achieve with 16 channels.
 subjects) reported mean accuracies of 65-75% with optimized algorithms. Our
 5-class system with 16 channels should expect 5-15% lower accuracy.
 
-### 3.2 No Online Adaptation
+### 3.2 Online Adaptation Limitations (SEAL Engine)
 
-The classifier is trained once and deployed frozen. It does not adapt to
-the subject's changing brain state during a session.
+The system includes online adaptation via the SEAL (Self-Evolving Adaptive
+Learning) engine, which uses involuntary ErrP/P300 brain signals as reward
+signals to periodically refit the classifier during live sessions. However,
+this adaptation has significant limitations.
 
-**Impact:**
-- Brain signals drift over time (electrode gel dries, attention fluctuates,
-  fatigue accumulates). A classifier trained on data from minute 1-25 may
-  perform worse by minute 45
-- Session-to-session variability is even larger — a model trained on Tuesday
-  may work poorly on Wednesday
+**How it works:**
+- After every cursor action, the brain involuntarily produces either a P300
+  ("correct") or ErrP ("error") signal at frontocentral/parietal electrodes
+- These are detected and used to label the corresponding EEG epoch
+- Every 30 seconds, accumulated reward-labeled data is blended with a replay
+  buffer (original calibration data) and used to update the classifier
+
+**Limitations of the adaptation:**
+- **Heuristic ErrP detection is only ~70-75% accurate** on day 1. Roughly
+  25-30% of reward labels are WRONG, introducing noise into the adaptation.
+  Template mode (~89%) auto-activates after 50+ detections but requires
+  several minutes of active use.
+- **Session-to-session drift is not addressed.** SEAL adapts within a single
+  session but does not carry state across sessions. A model trained on
+  Tuesday still may not work on Wednesday without recalibration.
+- **CSP refit on small batches** (~30 samples per update) produces spatial
+  filters inferior to the original calibration (200+ samples). The replay
+  buffer mitigates this but doesn't fully compensate.
+- **Negative sample inflation**: Each detected error produces `n_classes - 1`
+  training samples (one per non-error class), because the true class is
+  unknown. This injects noisy labels that can destabilize the classifier.
+- **ERP epoch overlap**: Rapid actions (< 600ms apart) produce overlapping
+  ERP windows, degrading detection accuracy for back-to-back commands.
 
 **Mitigation:**
 - Riemannian MDM is inherently more robust to non-stationarity than CSP+LDA
 - Recalibrating (collecting new training data) before each session helps
-- Future improvement: implement online adaptation (e.g., running mean update
-  to covariance matrices)
+- SEAL auto-undo reverses erroneous cursor movements on ErrP detection
+- Template mode accuracy (~89%) approaches the Schmidt & Blankertz 2010
+  benchmark after sufficient detections accumulate
 
 ### 3.3 No Transfer Learning
 
@@ -305,13 +325,14 @@ resets and **restarts the timer**, causing another click after another 0.8s.
 
 **Impact:**
 - A 5-second sustained left-hand imagery at high confidence produces approximately
-  **5 clicks** (one every 0.8s + 0.5s cooldown ≈ 1.3s per click)
+  **6 clicks** (one every ~0.86s: 0.8s hold + one loop iteration). The 0.5s
+  cooldown does NOT add extra delay because it is shorter than the hold duration.
 - There is no "single click then stop" behavior — the user must actively switch
   to rest or another class to prevent repeated clicks
 
-**Mitigation:** The 0.5s cooldown between clicks prevents machine-gun rapid fire.
-For single-click behavior, the user should briefly relax after feeling the click
-trigger.
+**Mitigation:** For single-click behavior, the user should briefly relax after
+feeling the click trigger. With SEAL adaptation enabled, erroneous clicks
+detected via ErrP will be auto-corrected.
 
 ### 4.5 No Diagonal Movement
 
@@ -428,6 +449,7 @@ Several `settings.yaml` keys are declared but never read by any code:
 | `ui.show_fft` | Toggle FFT display | GUI does not read this |
 | `ui.show_classifier_output` | Toggle classifier output | GUI does not read this |
 | `ui.feedback_type` | Feedback visualization type | GUI does not read this |
+| `adaptation.covariance_alpha` | Exponential weighting for covariance updates | Read into attribute but never used |
 
 These keys exist for future extensibility but currently have no effect.
 
@@ -560,7 +582,7 @@ To set clear expectations, here is what this BCI system **does not and cannot** 
 | Electrode type | Wet gel | Wet gel (active) | Active wet/dry |
 | Event timing | Wall clock (~10ms jitter) | Hardware TTL (~1ms) | Hardware TTL |
 | Artifact rejection | Offline only | Real-time (ICA, regression) | Real-time adaptive |
-| Online adaptation | None | Supervised/unsupervised | Continuous |
+| Online adaptation | ErrP/P300-driven SEAL (~75-89%) | Supervised/unsupervised | Continuous |
 | Transfer learning | None | Subject-to-subject | Preloaded models |
 | Typical 4-class accuracy | 35-60% | 65-80% | 70-85% |
 | Setup time | 15 min (gel electrodes) | 30-60 min (active electrodes) | 5-15 min (dry cap) |
@@ -572,4 +594,4 @@ cost. It is a research/educational tool, not a clinical assistive device.
 ---
 
 *This document reflects the state of the system as of the deep validation audit
-conducted on 2026-03-27. Limitations may be addressed in future versions.*
+conducted on 2026-03-29. Updated for SEAL adaptation engine integration.*
