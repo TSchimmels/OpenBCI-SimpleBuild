@@ -41,6 +41,11 @@ models/*.labels.json
 CLAUDE.md
 AGENTS.md
 
+# Internal documentation (IP-sensitive — not for public repos)
+docs/obsidian/
+AUDIT_REPORT.md
+LIMITATIONS.md
+
 # Test cache
 .pytest_cache/
 

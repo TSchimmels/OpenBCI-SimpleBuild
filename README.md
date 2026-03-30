@@ -21,7 +21,6 @@ No eye tracking. No EMG. No cameras. Just EEG signals from an OpenBCI Cyton+Dais
 - [Design Attributes & Innovations](#design-attributes--innovations)
 - [Open Source Foundations](#open-source-foundations)
 - [Known Issues & Audit](#known-issues--audit)
-- [References](#references)
 - [License](#license)
 
 ---
@@ -132,11 +131,11 @@ The system achieves real-time control at **16 Hz update rate** with sub-100ms cl
 
 ### Feature Extraction
 
-| Feature Type | Method | Output | Source |
-|-------------|--------|--------|--------|
-| **CSP** | Common Spatial Patterns via MNE | 12 log-variance components | Blankertz et al. (2008) |
-| **Band Power** | Welch PSD + Simpson integration | mu/beta power per channel + ratio | Pfurtscheller & Lopes da Silva (1999) |
-| **Chaos/Nonlinear** | Hjorth, permutation entropy, fractal dimensions via antropy | 6 features × 7 channels | Lotte et al. (2018) |
+| Feature Type | Method | Output |
+|-------------|--------|--------|
+| **CSP** | Common Spatial Patterns via MNE | 12 log-variance components |
+| **Band Power** | Welch PSD + Simpson integration | mu/beta power per channel + ratio |
+| **Chaos/Nonlinear** | Hjorth, permutation entropy, fractal dimensions via antropy | 6 features × 7 channels |
 
 ---
 
@@ -149,20 +148,20 @@ Three pluggable classifiers implement a common `BaseClassifier` interface:
 - **Spatial filtering:** CSP learns 12 spatial filters maximizing class-conditional variance ratios
 - **Classification:** Linear Discriminant Analysis with Ledoit-Wolf automatic shrinkage
 - **Strengths:** Fast (< 1ms inference), works well with small datasets (40+ trials/class), interpretable
-- **Architecture source:** Ramoser et al. (2000), Blankertz et al. (2008)
+- **Approach:** Well-established spatial filtering and linear classification methods
 
 ### 2. EEGNet (Deep Learning)
 
 - **Architecture:** Compact CNN with temporal → depthwise spatial → separable convolutions
 - **Training:** Adam optimizer with early stopping on 10% validation hold-out
 - **Strengths:** Learns spatial and temporal features end-to-end, no manual feature engineering
-- **Architecture source:** Lawhern et al. (2018) — *Journal of Neural Engineering*
+- **Approach:** Standard compact CNN architecture designed for EEG classification
 
 ### 3. Riemannian MDM (Geometry-Aware)
 
 - **Approach:** Maps EEG epochs to SPD covariance matrices, classifies via geodesic distances on the Riemannian manifold
 - **Strengths:** Naturally robust to non-stationarity, no explicit feature extraction
-- **Architecture source:** Barachant et al. (2012) — *IEEE Trans. Biomed. Eng.*
+- **Approach:** Geometry-aware classification using standard Riemannian BCI methods
 
 ### Factory Pattern
 
@@ -211,7 +210,7 @@ Instead of EMG jaw clench (removed), clicks are triggered by **sustained high-co
 
 ## Training Paradigm
 
-Implements the **Graz Motor Imagery Protocol** (Pfurtscheller & Neuper, 2001):
+Implements a standard **motor imagery calibration protocol**:
 
 ```
 ┌─────────┐  ┌──────────┐  ┌────────────────┐  ┌──────────┐
@@ -550,57 +549,8 @@ This project builds on and integrates these open source libraries and research:
 | [**PyQt5**](https://riverbankcomputing.com/software/pyqt/) | ≥5.15 | GUI framework | GPL-v3 |
 | [**pyqtgraph**](https://github.com/pyqtgraph/pyqtgraph) | ≥0.13 | Real-time signal plotting | MIT |
 
-### Research Architecture Sources
 
-| Component | Based On | Citation |
-|-----------|----------|----------|
-| CSP spatial filtering | Blankertz et al. (2008) | "Optimizing Spatial Filters for Robust EEG Single-Trial Analysis." *IEEE Signal Processing Magazine*, 25(1), 41-56. |
-| Graz MI paradigm | Pfurtscheller & Neuper (2001) | "Motor imagery and direct brain-computer communication." *Proceedings of the IEEE*, 89(7), 1123-1134. |
-| EEGNet architecture | Lawhern et al. (2018) | "EEGNet: a compact convolutional neural network for EEG-based brain-computer interfaces." *Journal of Neural Engineering*, 15(5), 056013. |
-| Riemannian classification | Barachant et al. (2012) | "Multiclass brain-computer interface classification by Riemannian geometry." *IEEE Trans. Biomed. Eng.*, 59(4), 920-928. |
-| ERD/ERS band power | Pfurtscheller & Lopes da Silva (1999) | "Event-related EEG/MEG synchronization and desynchronization: basic principles." *Clinical Neurophysiology*, 110(11), 1842-1857. |
-| Nonlinear EEG features | Lotte et al. (2018) | "A review of classification algorithms for EEG-based brain-computer interfaces: a 10 year update." *Journal of Neural Engineering*, 15(3), 031005. |
-| Shrinkage LDA | Ledoit & Wolf (2004) | "A well-conditioned estimator for large-dimensional covariance matrices." *Journal of Multivariate Analysis*, 88(2), 365-411. |
-| CSP+LDA for MI-BCI | Ramoser et al. (2000) | "Optimal Spatial Filtering of Single Trial EEG During Imagined Hand Movement." *IEEE Trans. Rehab. Eng.*, 8(4), 441-446. |
 
-### Derived From
-
-This project is a **pure-EEG adaptation** of the Mental Mouse hybrid BCI project, which combined EEG motor imagery with MediaPipe eye tracking and EMG jaw-clench click detection. The adaptation removes all non-EEG modalities and replaces them with:
-- **4-directional MI control** (replacing eye tracking for cursor positioning)
-- **Sustained-imagery click detection** (replacing EMG jaw clench)
-- **5-class paradigm** (up from 3-class in the original)
-
----
-
-## Known Issues & Audit
-
-The original project underwent a comprehensive audit that identified 8 critical bugs. All have been addressed in this build:
-
-| ID | Issue | Status |
-|----|-------|--------|
-| C-1 | Training/inference preprocessing mismatch | **Fixed** — Both paths use mi_bandpass + CAR |
-| C-2 | Window size mismatch (training vs runtime) | **Fixed** — Both use classification_window_start/end |
-| C-3 | Label encoding order mismatch | **Fixed** — Label map saved with model |
-| C-4 | Causal filter state corruption | **Fixed** — Per-window non-causal filtering |
-| C-5 | DataRecorder.save() loses data after stop() | **Fixed** — Cached in _last_raw_data |
-| C-6 | Synthetic board channel index mismatch | **Fixed** — Runtime validation + clamping |
-| C-7 | Chaos/bandpower features computed but unused | **Acknowledged** — Available for fusion classifiers |
-| C-8 | Cross-validation crashes on unfitted classifier | **Fixed** — Uses _pipeline attribute for CV |
-
----
-
-## References
-
-1. Blankertz, B., Tomioka, R., Lemm, S., Kawanabe, M., & Muller, K.-R. (2008). Optimizing Spatial Filters for Robust EEG Single-Trial Analysis. *IEEE Signal Processing Magazine*, 25(1), 41-56.
-2. Pfurtscheller, G. & Neuper, C. (2001). Motor imagery and direct brain-computer communication. *Proceedings of the IEEE*, 89(7), 1123-1134.
-3. Lawhern, V. J., Solon, A. J., Waytowich, N. R., Gordon, S. M., Hung, C. P., & Lance, B. J. (2018). EEGNet: a compact convolutional neural network for EEG-based brain-computer interfaces. *Journal of Neural Engineering*, 15(5), 056013.
-4. Barachant, A., Bonnet, S., Congedo, M., & Jutten, C. (2012). Multiclass brain-computer interface classification by Riemannian geometry. *IEEE Trans. Biomed. Eng.*, 59(4), 920-928.
-5. Pfurtscheller, G. & Lopes da Silva, F. H. (1999). Event-related EEG/MEG synchronization and desynchronization: basic principles. *Clinical Neurophysiology*, 110(11), 1842-1857.
-6. Lotte, F., et al. (2018). A review of classification algorithms for EEG-based brain-computer interfaces: a 10 year update. *Journal of Neural Engineering*, 15(3), 031005.
-7. Ramoser, H., Muller-Gerking, J., & Pfurtscheller, G. (2000). Optimal Spatial Filtering of Single Trial EEG During Imagined Hand Movement. *IEEE Trans. Rehab. Eng.*, 8(4), 441-446.
-8. Ledoit, O. & Wolf, M. (2004). A well-conditioned estimator for large-dimensional covariance matrices. *Journal of Multivariate Analysis*, 88(2), 365-411.
-
----
 
 ## License
 
