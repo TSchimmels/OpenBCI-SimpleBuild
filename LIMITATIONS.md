@@ -144,7 +144,11 @@ The MI-specific bandpass is hardcoded to 8-30 Hz (`mi_bandpass_low`,
 
 **Mitigation:** The config values are tunable in `settings.yaml`. The ERP
 trainer's ERDS% spectrogram shows the subject's actual frequency profile,
-allowing manual adjustment of the bandpass limits.
+allowing manual adjustment of the bandpass limits. The Koopman spectral
+decomposition module (`src/analysis/koopman_decomposition.py`) can
+automatically discover the subject's actual mu rhythm frequency via
+Dynamic Mode Decomposition, though integration into the real-time pipeline
+is not yet automatic.
 
 ### 2.4 No Artifact Rejection in Real-Time
 
@@ -239,14 +243,18 @@ this adaptation has significant limitations.
 - Template mode accuracy (~89%) approaches the Schmidt & Blankertz 2010
   benchmark after sufficient detections accumulate
 
-### 3.3 No Transfer Learning
+### 3.3 Calibration Burden (Partially Addressed)
 
-Each subject must undergo a full calibration session (200+ trials, ~25 minutes)
-before the system works for them.
+Each subject must undergo a calibration session before the system works.
+The TS-JEPA self-supervised pre-training module (`src/training/pretrain.py`)
+can reduce this burden by learning EEG structure from unlabeled data first.
 
 **Impact:**
-- Cannot use pre-trained models from other subjects
-- High barrier to first use — 25 minutes of calibration before any cursor control
+- Without pre-training: 200+ trials (~25 minutes) required for calibration
+- With JEPA pre-training: potentially 50-100 trials (~10-15 minutes) may
+  suffice, though this depends on signal quality and subject variability
+- Still cannot use pre-trained models across subjects (no transfer learning
+  between individuals)
 - Calibration fatigue: subjects perform worse in later trials, degrading
   training data quality
 
@@ -583,7 +591,7 @@ To set clear expectations, here is what this BCI system **does not and cannot** 
 | Event timing | Wall clock (~10ms jitter) | Hardware TTL (~1ms) | Hardware TTL |
 | Artifact rejection | Offline only | Real-time (ICA, regression) | Real-time adaptive |
 | Online adaptation | ErrP/P300-driven SEAL (~75-89%) | Supervised/unsupervised | Continuous |
-| Transfer learning | None | Subject-to-subject | Preloaded models |
+| Transfer learning | Self-supervised pre-training available | Subject-to-subject | Preloaded models |
 | Typical 4-class accuracy | 35-60% | 65-80% | 70-85% |
 | Setup time | 15 min (gel electrodes) | 30-60 min (active electrodes) | 5-15 min (dry cap) |
 | Cost | ~$1,000 (board + cap) | $10,000-50,000 | $20,000-100,000 |

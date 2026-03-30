@@ -259,15 +259,26 @@ OpenBCI_SimpleBuild/
 │   │   ├── base.py                 # Abstract BaseClassifier interface
 │   │   ├── csp_lda.py              # CSP + shrinkage LDA
 │   │   ├── eegnet.py               # EEGNet CNN (PyTorch)
-│   │   └── pipeline.py             # Riemannian MDM + ClassifierFactory
+│   │   ├── pipeline.py             # Riemannian MDM + ClassifierFactory
+│   │   ├── adaptive_router.py      # Dynamics-aware multi-classifier routing
+│   │   └── neural_sde.py           # Stochastic differential equation classifier
 │   ├── control/
 │   │   ├── mouse.py                # pyautogui cursor driver
 │   │   ├── mapping.py              # Signal normalization + velocity mapping
 │   │   └── cursor_control.py       # EEG-driven cursor state machine (NEW)
-│   └── training/
-│       ├── paradigm.py             # Graz MI protocol (pygame, 5-class)
-│       ├── recorder.py             # Data recording with event markers
-│       └── trainer.py              # Offline training + cross-validation
+│   ├── training/
+│   │   ├── paradigm.py             # Graz MI protocol (pygame, 5-class)
+│   │   ├── recorder.py             # Data recording with event markers
+│   │   ├── trainer.py              # Offline training + cross-validation
+│   │   └── pretrain.py             # Self-supervised pre-training
+│   ├── adaptation/
+│   │   ├── errp_detector.py        # Involuntary error/confirmation detection
+│   │   ├── seal_engine.py          # Self-evolving adaptive learning
+│   │   └── gflownet_strategy.py    # Adaptation strategy optimization
+│   └── features/
+│       ├── (core feature extractors)
+│       ├── jacobian_features.py    # Dynamical system features
+│       └── variable_selector.py    # Learned feature importance
 │
 ├── scripts/                        # Entry points
 │   ├── test_synthetic.py           # Pipeline test (no hardware needed)
