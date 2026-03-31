@@ -154,6 +154,39 @@ adaptation:
   # Auto-undo on ErrP detection
   auto_undo: true
 
+advanced:
+  # Adaptive classifier routing
+  adaptive_routing: false       # Enable multi-classifier routing
+  routing_ensemble_threshold: 0.6  # Below this confidence, use ensemble
+
+  # State monitoring (fatigue/attention)
+  state_monitor: false          # Enable EWS-based state monitoring
+  state_monitor_window_s: 30    # Rolling window for EWS computation
+  state_monitor_interval_s: 5   # Seconds between state assessments
+
+  # Causal channel discovery
+  causal_discovery: false       # Enable per-subject channel DAG
+  causal_top_k: 6               # Number of top channels per class
+
+  # Koopman spectral decomposition
+  koopman_enabled: false        # Enable data-driven spectral modes
+  koopman_n_modes: 10           # Number of DMD modes to extract
+  koopman_delay_dim: 5          # Time-delay embedding dimension
+
+  # Self-supervised pre-training (JEPA)
+  pretrain_enabled: false       # Enable JEPA pre-training
+  pretrain_embed_dim: 64        # Encoder embedding dimension
+  pretrain_mask_ratio: 0.5      # Fraction of channels to mask
+  pretrain_epochs: 100          # Pre-training epochs
+
+  # Neural SDE classifier
+  neural_sde_enabled: false     # Use SDE classifier instead of default
+  neural_sde_latent_dim: 32     # Latent state dimension
+  neural_sde_n_steps: 20        # Euler-Maruyama integration steps
+
+  # GFlowNet adaptation strategy
+  gflownet_enabled: false       # Enable GFlowNet SEAL optimization
+
 paths:
   data_dir: "data"
   models_dir: "models"

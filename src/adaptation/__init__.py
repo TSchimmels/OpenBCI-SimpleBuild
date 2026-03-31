@@ -15,4 +15,12 @@ References:
 from .errp_detector import ErrPP300Detector
 from .seal_engine import SEALAdaptationEngine
 
-__all__ = ["ErrPP300Detector", "SEALAdaptationEngine"]
+
+def __getattr__(name):
+    if name == "GFlowNetSEALOptimizer":
+        from .gflownet_strategy import GFlowNetSEALOptimizer
+        return GFlowNetSEALOptimizer
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+__all__ = ["ErrPP300Detector", "SEALAdaptationEngine", "GFlowNetSEALOptimizer"]

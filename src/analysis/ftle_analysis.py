@@ -14,7 +14,6 @@ mark transitions between distinct brain states.
 """
 
 import numpy as np
-from scipy.signal import morlet2
 from scipy.ndimage import gaussian_filter, maximum_filter, label
 from scipy.interpolate import RectBivariateSpline
 from typing import List, Dict, Optional, Tuple
@@ -78,7 +77,12 @@ class FTLEAnalyzer:
             M = int(10 * s * self.sf)  # wavelet length in samples
             if M % 2 == 0:
                 M += 1
-            wavelet = morlet2(M, s * self.sf, w)
+            # Build Morlet wavelet manually (scipy.signal.morlet2 removed in 1.15+)
+            t = (np.arange(M) - M // 2) / self.sf
+            gaussian = np.exp(-t ** 2 / (2 * s ** 2))
+            sinusoid = np.exp(2j * np.pi * freq * t)
+            wavelet = gaussian * sinusoid
+            wavelet /= np.sqrt(np.sum(np.abs(wavelet) ** 2) + 1e-12)
             # convolve via FFT
             n_conv = n_samples + M - 1
             fft_sig = np.fft.fft(signal, n=n_conv)

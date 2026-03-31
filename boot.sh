@@ -114,6 +114,7 @@ print_menu() {
     echo -e "    ${MAGENTA}6${NC})  Launch GUI                   ${DIM}(graphical interface)${NC}"
     echo -e "    ${CYAN}7${NC})  Run unit tests"
     echo -e "    ${CYAN}8${NC})  Run full pipeline test       ${DIM}(synth → train → run)${NC}"
+    echo -e "    ${MAGENTA}9${NC})  JEPA pre-training            ${DIM}(reduce calibration time)${NC}"
     echo ""
     echo -e "    ${DIM}0${NC})  Exit"
     echo ""
@@ -244,6 +245,60 @@ do_full_pipeline() {
     echo "  Connect your OpenBCI board to continue with real EEG."
 }
 
+do_pretrain() {
+    echo -e "\n${CYAN}${BOLD}JEPA Self-Supervised Pre-Training...${NC}\n"
+    echo -e "  This learns EEG structure from UNLABELED data to reduce calibration time."
+    echo -e "  Just wear the cap and relax — no tasks needed."
+    echo -e ""
+    echo -e "${YELLOW}  Press ENTER when ready (or Ctrl+C to cancel)...${NC}"
+    read -r
+
+    python -c "
+import sys, time
+sys.path.insert(0, '.')
+from src.config import load_config
+from src.acquisition.board import BoardManager
+import numpy as np
+
+config = load_config()
+board = BoardManager(config)
+board.connect()
+sf = board.get_sampling_rate()
+eeg_ch = board.get_eeg_channels()
+print(f'Board: {sf}Hz, {len(eeg_ch)} channels')
+print('Collecting 2 minutes of unlabeled EEG for pre-training...')
+
+board.get_board_data()  # flush
+time.sleep(120)
+raw = board.get_board_data()
+eeg = raw[eeg_ch, :]
+board.disconnect()
+print(f'Collected {eeg.shape[1]} samples ({eeg.shape[1]/sf:.0f}s)')
+
+# Pre-train
+from src.training.pretrain import JEPAPretrainer
+pt = JEPAPretrainer(n_channels=len(eeg_ch), n_samples=int(2.5*sf), sf=sf)
+
+# Cut into windows
+win_len = int(2.5 * sf)
+windows = []
+for i in range(0, eeg.shape[1] - win_len, win_len // 2):
+    windows.append(eeg[:, i:i+win_len])
+X = np.stack(windows)
+print(f'Training on {X.shape[0]} windows...')
+
+result = pt.pretrain(X, n_epochs=50, batch_size=16)
+print(f'Pre-training complete. Final loss: {result[\"loss_history\"][-1]:.4f}')
+
+import joblib
+joblib.dump(pt, 'models/jepa_encoder.pkl')
+print('Encoder saved to models/jepa_encoder.pkl')
+"
+
+    echo -e "\n${GREEN}${BOLD}Pre-training complete!${NC}"
+    echo "  The encoder is saved. Use it with train_model.py for faster calibration."
+}
+
 ###############################################################################
 # CLI mode (direct command)
 ###############################################################################
@@ -254,6 +309,7 @@ if [ "${1:-}" != "" ]; then
 
     case "$1" in
         test)       do_test_synthetic ;;
+        pretrain)   do_pretrain ;;
         calibrate)  do_calibrate ;;
         train)      do_train ;;
         erp)        do_erp ;;
@@ -293,6 +349,7 @@ while true; do
         6) do_gui ;;
         7) do_pytest ;;
         8) do_full_pipeline ;;
+        9) do_pretrain ;;
         0) echo -e "\n${DIM}Goodbye.${NC}\n"; exit 0 ;;
         *) echo -e "\n${RED}Invalid choice.${NC}"; sleep 1 ;;
     esac
