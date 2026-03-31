@@ -54,6 +54,7 @@ from src.classification.base import BaseClassifier
 from src.control.cursor_control import EEGCursorController
 from src.adaptation.errp_detector import ErrPP300Detector
 from src.adaptation.seal_engine import SEALAdaptationEngine
+from src.analysis.state_monitor import BCIStateMonitor
 
 
 def parse_args() -> argparse.Namespace:
@@ -282,6 +283,24 @@ def main() -> None:
         logger.info("Self-adaptation DISABLED")
 
     # ------------------------------------------------------------------
+    # 5c. Create state monitor (fatigue/attention EWS)
+    # ------------------------------------------------------------------
+    adv_cfg = config.get("advanced", {})
+    state_monitor_enabled = adv_cfg.get("state_monitor", False)
+    state_monitor: Optional[BCIStateMonitor] = None
+
+    if state_monitor_enabled:
+        state_monitor = BCIStateMonitor(
+            sf=sf,
+            n_channels=len(eeg_channels),
+            window_s=adv_cfg.get("state_monitor_window_s", 30.0),
+            update_interval_s=adv_cfg.get("state_monitor_interval_s", 5.0),
+        )
+        logger.info("State monitor ENABLED (EWS fatigue/attention)")
+    else:
+        logger.info("State monitor DISABLED")
+
+    # ------------------------------------------------------------------
     # 6. Start EEG acquisition thread
     # ------------------------------------------------------------------
     train_cfg = config.get("training", {})
@@ -329,6 +348,41 @@ def main() -> None:
 
             # Extract EEG channels only
             eeg_window = raw_window[eeg_channels, :]
+
+            # ----- a2. State monitor (fatigue/attention EWS) -----
+            if state_monitor is not None:
+                state_result = state_monitor.update(
+                    eeg_chunk=eeg_window,
+                    current_time=time.monotonic(),
+                )
+                if state_result is not None:
+                    sm_state = state_result["state"]
+                    if sm_state == "degraded":
+                        logger.warning(
+                            "STATE MONITOR: %s — fatigue=%.2f, attention=%.2f, "
+                            "electrodes=%.2f | %s",
+                            sm_state.upper(),
+                            state_result["fatigue_score"],
+                            state_result["attention_score"],
+                            state_result["electrode_quality"],
+                            state_result.get("recommendation", ""),
+                        )
+                    elif sm_state == "warning":
+                        logger.warning(
+                            "STATE MONITOR: %s — fatigue=%.2f, attention=%.2f, "
+                            "electrodes=%.2f",
+                            sm_state.upper(),
+                            state_result["fatigue_score"],
+                            state_result["attention_score"],
+                            state_result["electrode_quality"],
+                        )
+                    else:
+                        logger.debug(
+                            "STATE MONITOR: %s — fatigue=%.2f, attention=%.2f",
+                            sm_state,
+                            state_result["fatigue_score"],
+                            state_result["attention_score"],
+                        )
 
             # ----- b. Preprocess (same pipeline as training) -----
             filtered = bandpass_filter(eeg_window, sf=sf, low=mi_bp_low,

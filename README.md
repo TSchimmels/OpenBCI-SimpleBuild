@@ -159,9 +159,8 @@ Three pluggable classifiers implement a common `BaseClassifier` interface:
 
 ### 3. Riemannian MDM (Geometry-Aware)
 
-- **Approach:** Maps EEG epochs to SPD covariance matrices, classifies via geodesic distances on the Riemannian manifold
+- **Approach:** Maps EEG epochs to SPD covariance matrices, classifies via geodesic distances using standard Riemannian geometry methods
 - **Strengths:** Naturally robust to non-stationarity, no explicit feature extraction
-- **Approach:** Geometry-aware classification using standard Riemannian BCI methods
 
 ### Factory Pattern
 
@@ -530,7 +529,7 @@ All classifiers implement `BaseClassifier` and are instantiated via `ClassifierF
 
 ## Open Source Foundations
 
-This project builds on and integrates these open source libraries and research:
+This project builds on and integrates these open source libraries:
 
 ### Core Libraries
 
@@ -549,8 +548,7 @@ This project builds on and integrates these open source libraries and research:
 | [**PyQt5**](https://riverbankcomputing.com/software/pyqt/) | ≥5.15 | GUI framework | GPL-v3 |
 | [**pyqtgraph**](https://github.com/pyqtgraph/pyqtgraph) | ≥0.13 | Real-time signal plotting | MIT |
 
-
-
+---
 
 ## License
 
