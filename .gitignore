@@ -45,6 +45,7 @@ AGENTS.md
 docs/obsidian/
 AUDIT_REPORT.md
 LIMITATIONS.md
+TRAINING_DESIGN.md
 
 # Test cache
 .pytest_cache/
