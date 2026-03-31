@@ -20,12 +20,14 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import signal
 import sys
 import threading
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -109,6 +111,12 @@ class EEGAcquisitionThread:
         self._running = False
         self._thread: Optional[threading.Thread] = None
 
+        # Board error tracking
+        self._consecutive_failures = 0
+        self._board_error = False
+        self._board_error_time: Optional[float] = None
+        self._acq_logger = logging.getLogger("run_eeg_cursor.acq")
+
     def start(self) -> None:
         if self._running:
             return
@@ -127,6 +135,18 @@ class EEGAcquisitionThread:
         with self._lock:
             return self._buffer.copy() if self._buffer is not None else None
 
+    @property
+    def has_error(self) -> bool:
+        """True if the board has had 10+ consecutive read failures."""
+        return self._board_error
+
+    @property
+    def error_duration(self) -> float:
+        """Seconds since the board error flag was first set, or 0.0 if no error."""
+        if self._board_error and self._board_error_time is not None:
+            return time.monotonic() - self._board_error_time
+        return 0.0
+
     def _run(self) -> None:
         while self._running:
             try:
@@ -137,8 +157,30 @@ class EEGAcquisitionThread:
                 elif data.shape[1] > 0:
                     with self._lock:
                         self._buffer = data
-            except Exception:
-                pass  # Board errors are non-fatal in the acq thread
+                # Successful read — reset failure counter
+                if self._consecutive_failures > 0:
+                    self._acq_logger.info(
+                        "Board recovered after %d consecutive failures.",
+                        self._consecutive_failures,
+                    )
+                self._consecutive_failures = 0
+                self._board_error = False
+                self._board_error_time = None
+            except Exception as exc:
+                self._consecutive_failures += 1
+                if self._consecutive_failures <= 10 or self._consecutive_failures % 50 == 0:
+                    self._acq_logger.debug(
+                        "Board read failure #%d: %s",
+                        self._consecutive_failures, exc,
+                    )
+                if self._consecutive_failures >= 10 and not self._board_error:
+                    self._board_error = True
+                    self._board_error_time = time.monotonic()
+                    self._acq_logger.warning(
+                        "Board error flag SET — %d consecutive read failures. "
+                        "Board may be disconnected.",
+                        self._consecutive_failures,
+                    )
             time.sleep(self._poll_interval)
 
 
@@ -335,12 +377,31 @@ def main() -> None:
     status_interval = int(update_rate_hz * 3)  # Print status every ~3 seconds
     total_latency = 0.0
     classifications = 0
+    session_start_time = datetime.now(timezone.utc)
 
     try:
         while not shutdown_event.is_set():
             loop_start = time.monotonic()
 
             # ----- a. Get latest EEG window -----
+            # Check for board disconnection
+            if acq_thread.has_error:
+                err_dur = acq_thread.error_duration
+                if err_dur >= 30.0:
+                    logger.error(
+                        "Board has been unresponsive for %.0f seconds. "
+                        "Consider stopping the session and reconnecting the board.",
+                        err_dur,
+                    )
+                else:
+                    logger.warning(
+                        "Board read errors detected (%.0f s). "
+                        "Data may be stale — check the board connection.",
+                        err_dur,
+                    )
+                time.sleep(update_interval)
+                continue
+
             raw_window = acq_thread.get_window()
             if raw_window is None:
                 time.sleep(update_interval)
@@ -513,6 +574,9 @@ def main() -> None:
         logger.info("Board disconnected.")
 
         # Final stats
+        session_end_time = datetime.now(timezone.utc)
+        session_duration = (session_end_time - session_start_time).total_seconds()
+
         if classifications > 0:
             avg_latency_ms = (total_latency / classifications) * 1000
             print("\n" + "=" * 60)
@@ -525,7 +589,48 @@ def main() -> None:
             print(f"  Total loop iterations: {loop_count}")
             print("=" * 60)
         else:
+            avg_latency_ms = 0.0
             print("\nSession ended (no classifications performed).")
+
+        # ------------------------------------------------------------------
+        # 9. Save session stats to JSON
+        # ------------------------------------------------------------------
+        try:
+            project_root = Path(__file__).parent.parent
+            sessions_dir = project_root / "data" / "sessions"
+            sessions_dir.mkdir(parents=True, exist_ok=True)
+
+            session_filename = (
+                f"session_{session_start_time.strftime('%Y%m%d_%H%M%S')}.json"
+            )
+            session_path = sessions_dir / session_filename
+
+            session_stats = {
+                "start_time": session_start_time.isoformat(),
+                "end_time": session_end_time.isoformat(),
+                "duration_seconds": round(session_duration, 2),
+                "total_classifications": classifications,
+                "avg_latency_ms": round(avg_latency_ms, 2),
+                "total_movements": cursor.total_movements,
+                "total_clicks": cursor.total_clicks,
+                "total_loop_iterations": loop_count,
+                "model_used": str(model_path),
+            }
+
+            # Include SEAL adaptation stats if adaptation was enabled
+            if adaptation_enabled:
+                try:
+                    seal_stats = seal_engine.get_stats()
+                    session_stats["seal_stats"] = seal_stats
+                except Exception:
+                    session_stats["seal_stats"] = None
+
+            session_path.write_text(
+                json.dumps(session_stats, indent=2, default=str) + "\n"
+            )
+            logger.info("Session stats saved to %s", session_path)
+        except Exception:
+            logger.exception("Failed to save session stats to JSON.")
 
         logger.info("EEG Cursor stopped.")
 

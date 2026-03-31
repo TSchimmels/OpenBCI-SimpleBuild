@@ -602,6 +602,9 @@ class DataCollectionTab(QWidget):
         erp_layout.addWidget(erp_desc)
         self.btn_erp = QPushButton("ERP Signal Trainer")
         self.btn_erp.setMinimumHeight(40)
+        self.btn_erp.setToolTip(
+            "ERP data is for exploration only — use Calibration for training data."
+        )
         erp_layout.addWidget(self.btn_erp)
         layout.addWidget(erp_group)
 
@@ -1518,27 +1521,17 @@ class EEGCursorGUI(QMainWindow):
         )
 
     def _on_jepa_pretrain(self):
-        """Run JEPA pre-training (train_model.py with --pretrain flag or custom)."""
-        data_dir = Path(self._project_dir) / "data" / "raw"
-        recordings = sorted(data_dir.glob("*.npz"))
-        if not recordings:
-            QMessageBox.warning(
-                self, "No Data",
-                "No recordings found. Collect training data first."
-            )
-            return
-
-        latest = recordings[-1]
+        """Run JEPA self-supervised pre-training on unlabeled EEG."""
         self._tab_data.lbl_rec_status.setText("JEPA Pre-Training...")
         self._tab_data.lbl_rec_status.setStyleSheet(
             "font-size: 14px; font-weight: bold; color: #ce9178;"
         )
-        self._run_script([
-            "scripts/train_model.py",
-            "--data-path", str(latest),
-            "--model-type", "eegnet",
-            "--verbose",
-        ])
+        self._run_script(
+            ["scripts/jepa_pretrain.py", "--verbose"],
+            on_done=lambda code: self._tab_data.lbl_rec_status.setText(
+                "Complete" if code == 0 else "Failed"
+            ),
+        )
 
     def _on_train(self):
         """Train a model using the selected type and data file."""
@@ -1597,11 +1590,39 @@ class EEGCursorGUI(QMainWindow):
             )
             return
 
+        # Write Live Control toggle states to settings.yaml so the
+        # launched script reads the user's current choices.
+        try:
+            import yaml
+            cfg = load_config()
+            cfg.setdefault("adaptation", {})
+            cfg["adaptation"]["enabled"] = self._tab_live.chk_seal.isChecked()
+            cfg["adaptation"]["auto_undo"] = self._tab_live.chk_auto_undo.isChecked()
+            cfg.setdefault("advanced", {})
+            cfg["advanced"]["state_monitor"] = self._tab_live.chk_state_mon.isChecked()
+            cfg["advanced"]["adaptive_routing"] = self._tab_live.chk_adaptive_routing.isChecked()
+
+            settings_path = Path(self._project_dir) / "config" / "settings.yaml"
+            with open(settings_path, "w") as f:
+                yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
+            logger.info(
+                "Updated settings.yaml — SEAL=%s, StateMonitor=%s, AutoUndo=%s, AdaptiveRouting=%s",
+                self._tab_live.chk_seal.isChecked(),
+                self._tab_live.chk_state_mon.isChecked(),
+                self._tab_live.chk_auto_undo.isChecked(),
+                self._tab_live.chk_adaptive_routing.isChecked(),
+            )
+        except Exception as e:
+            logger.error("Failed to update settings before launch: %s", e)
+            QMessageBox.critical(
+                self, "Config Error",
+                f"Could not write toggle states to settings.yaml:\n{e}\n\n"
+                "The script will launch with the previous config."
+            )
+
         latest_model = models[-1]
         args = ["scripts/run_eeg_cursor.py", "--model", str(latest_model), "--verbose"]
 
-        # Pass toggle states as environment-style or config
-        # The toggles affect what the runtime script does
         self._live_running = True
         self._tab_live.set_running(True)
 
