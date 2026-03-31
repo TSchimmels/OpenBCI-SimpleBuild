@@ -19,8 +19,8 @@ No eye tracking. No EMG. No cameras. Just EEG signals from an OpenBCI Cyton+Dais
 - [Installation](#installation)
 - [Usage](#usage)
 - [Design Attributes & Innovations](#design-attributes--innovations)
-- [Open Source Foundations](#open-source-foundations)
-- [Known Issues & Audit](#known-issues--audit)
+- [Advanced Modules](#advanced-modules)
+- [Scripts Reference](#scripts-reference)
 - [License](#license)
 
 ---
@@ -530,21 +530,66 @@ Rather than mapping every classification output to movement, the system requires
 Instead of requiring additional hardware (EMG electrodes on the jaw), click events are detected purely from EEG by monitoring for **sustained high-confidence classification** of any directional class. This is a deliberate trade-off: slightly slower clicks, but zero additional hardware.
 
 ### 5. Pluggable Classifier Factory
-All classifiers implement `BaseClassifier` and are instantiated via `ClassifierFactory.create(config)`. Switching from CSP+LDA to EEGNet or Riemannian MDM requires changing one line in `settings.yaml`.
+Five classifier types available via a single config change:
 
-### 6. Graceful Degradation
+| Type | Strengths |
+|------|-----------|
+| `csp_lda` | Fast, reliable, works with 40 trials |
+| `eegnet` | Deep features, needs more data |
+| `riemannian` | Robust to noise and session drift |
+| `neural_sde` | Models EEG temporal dynamics |
+| `adaptive_router` | Routes each window to the best classifier |
+
+### 6. Self-Adapting System
+The system improves during use without conscious effort from the user. Brain signals produced involuntarily after each action are used to continuously update the classifier. Errors are automatically detected and undone.
+
+### 7. Graceful Degradation
 - antropy not installed → chaos features return empty arrays (no crash)
 - PyTorch not installed → EEGNet unavailable, CSP+LDA still works
 - No GPU → PyTorch falls back to CPU automatically
 - Synthetic board → full pipeline works without hardware
+- Board disconnect → detected and logged with reconnection guidance
 
 ---
 
-## Open Source Foundations
+## Advanced Modules
 
-This project builds on and integrates these open source libraries:
+The system includes optional advanced analysis and adaptation capabilities, all disabled by default and activated via `settings.yaml` or the GUI Settings tab.
 
-### Core Libraries
+| Module | What It Does |
+|--------|-------------|
+| **Adaptive routing** | Dynamically picks the best classifier for each EEG window |
+| **State monitoring** | Detects fatigue, attention lapses, and electrode degradation |
+| **Causal discovery** | Finds per-subject important channels for each MI class |
+| **Spectral decomposition** | Discovers the subject's actual mu rhythm frequency |
+| **Self-supervised pre-training** | Learns EEG structure from unlabeled data to reduce calibration |
+| **Stochastic dynamics classifier** | Models EEG as a stochastic process with state transitions |
+| **Dynamical features** | Extracts stability and complexity measures from EEG trajectories |
+| **Adaptation optimization** | Learns the best adaptation strategy for each subject |
+
+Enable any module in `config/settings.yaml` under the `advanced:` section.
+
+---
+
+## Scripts Reference
+
+| Script | Purpose | Usage |
+|--------|---------|-------|
+| `launch.sh` | One-click launcher | `bash launch.sh` |
+| `gui.py` | 5-tab control center | `python scripts/gui.py` |
+| `run_eeg_cursor.py` | Real-time cursor control | `--model <path>` |
+| `erp_trainer.py` | Signal exploration + data collection | `--review <file>` for offline |
+| `collect_training_data.py` | Graz paradigm calibration | `--verbose` |
+| `train_model.py` | Train any classifier type | `--model-type <type>` |
+| `benchmark_models.py` | Compare all classifiers | `--data-path <file>` |
+| `analyze_session.py` | Quick data analysis + plots | `<file> --plot` |
+| `run_koopman.py` | Spectral mode discovery | `<file> --plot` |
+| `run_causal.py` | Causal channel analysis | `<file> --top-k 6` |
+| `test_synthetic.py` | Pipeline test (no hardware) | `--verbose` |
+
+---
+
+## Dependencies
 
 | Library | Version | Purpose | License |
 |---------|---------|---------|---------|
