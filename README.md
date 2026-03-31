@@ -336,23 +336,36 @@ python scripts/test_synthetic.py --verbose    # Test full pipeline
 python -m pytest tests/ -v                     # Run unit tests
 ```
 
-### Interactive Launcher
+### Launch
 
 ```bash
-bash boot.sh
+bash launch.sh              # Launch the GUI (recommended)
+bash launch.sh --cli        # Interactive terminal menu
+bash launch.sh --test       # Run all tests
+bash launch.sh --install    # Install dependencies + launch
 ```
-
-This opens a menu-driven interface where you can run any operation with a single keypress.
 
 ---
 
-## How to Use — Step by Step
+## How to Use
 
-### The Easy Way: `bash boot.sh`
+### The GUI (Recommended)
 
-The boot launcher gives you a numbered menu. Just type a number and press Enter.
+`bash launch.sh` opens a 5-tab control center:
 
-### The Full Workflow (Manual Commands)
+| Tab | What You Can Do |
+|-----|-----------------|
+| **Dashboard** | Live EEG signals, classification bars, cursor position, system status |
+| **Data Collection** | Run calibration, ERP signal trainer, or JEPA pre-training |
+| **Training** | Select model type, pick data file, train, see cross-validation results |
+| **Live Control** | Start/stop cursor, toggle adaptation/monitoring/auto-undo/routing |
+| **Settings** | Edit all configuration, toggle advanced modules, save/load config |
+
+### Terminal Menu
+
+`bash launch.sh --cli` gives you a numbered menu for every operation.
+
+### Manual Commands
 
 There are **three paths** depending on what you want to do:
 
