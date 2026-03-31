@@ -8,6 +8,8 @@ Supported model types:
     * ``csp_lda`` — :class:`CSPLDAClassifier` (CSP + shrinkage LDA)
     * ``eegnet``  — :class:`EEGNetClassifier` (compact CNN)
     * ``riemannian`` — :class:`RiemannianClassifier` (MDM on SPD manifold)
+    * ``neural_sde`` — :class:`NeuralSDEClassifier` (latent Neural SDE)
+    * ``adaptive_router`` — :class:`AdaptiveClassifierRouter` (MoE routing)
 """
 
 from __future__ import annotations
@@ -212,7 +214,7 @@ class ClassifierFactory:
     """
 
     # Registry of supported model types
-    _SUPPORTED_TYPES = ("csp_lda", "eegnet", "riemannian")
+    _SUPPORTED_TYPES = ("csp_lda", "eegnet", "riemannian", "neural_sde", "adaptive_router")
 
     @staticmethod
     def create(config: dict) -> BaseClassifier:
@@ -242,6 +244,10 @@ class ClassifierFactory:
             return ClassifierFactory._create_eegnet(config)
         elif model_type == "riemannian":
             return ClassifierFactory._create_riemannian(config)
+        elif model_type == "neural_sde":
+            return ClassifierFactory._create_neural_sde(config)
+        elif model_type == "adaptive_router":
+            return ClassifierFactory._create_adaptive_router(config)
         else:
             raise ValueError(
                 f"Unknown model_type '{model_type}'. "
@@ -395,6 +401,113 @@ class ClassifierFactory:
         logger.info(
             "Created Riemannian MDM classifier (metric=%s, estimator=%s)",
             metric, estimator,
+        )
+        return clf
+
+    @staticmethod
+    def _create_neural_sde(config: dict) -> BaseClassifier:
+        """Build a Neural SDE classifier from config.
+
+        Reads:
+            - ``board.channel_count`` for number of EEG channels
+            - ``training`` section for class count and epoch sizing
+            - ``classification.neural_sde`` sub-section for SDE
+              hyper-parameters (latent_dim, n_steps, dt, device)
+
+        Args:
+            config: Full project configuration dictionary.
+
+        Returns:
+            Configured :class:`NeuralSDEClassifier`.
+        """
+        from .neural_sde import NeuralSDEClassifier
+
+        board_config = config.get("board", {})
+        cls_config = config.get("classification", {})
+        train_config = config.get("training", {})
+        sde_config = cls_config.get("neural_sde", {})
+
+        n_channels: int = board_config.get("channel_count", 16)
+        n_classes: int = train_config.get("n_classes", 3)
+
+        # Compute n_samples from sampling rate and classification window
+        sampling_rate_raw = board_config.get("sampling_rate_override", None)
+        if sampling_rate_raw is not None:
+            sampling_rate: int = int(sampling_rate_raw)
+        else:
+            try:
+                from brainflow.board_shim import BoardShim, BoardIds
+                board_id = int(board_config.get("board_id", BoardIds.SYNTHETIC_BOARD))
+                if board_id == -1:
+                    board_id = BoardIds.SYNTHETIC_BOARD
+                sampling_rate = int(BoardShim.get_sampling_rate(board_id))
+            except Exception:
+                sampling_rate = 250
+        window_start: float = train_config.get("classification_window_start", 1.5)
+        window_end: float = train_config.get("classification_window_end", 4.0)
+        n_samples: int = int(sampling_rate * (window_end - window_start))
+
+        clf = NeuralSDEClassifier(
+            n_channels=n_channels,
+            n_samples=n_samples,
+            n_classes=n_classes,
+            latent_dim=sde_config.get("latent_dim", 32),
+            n_steps=sde_config.get("n_steps", 20),
+            dt=sde_config.get("dt", 0.05),
+            device=sde_config.get("device", "auto"),
+        )
+        logger.info(
+            "Created NeuralSDE classifier (n_channels=%d, n_samples=%d, "
+            "n_classes=%d, latent_dim=%d, n_steps=%d)",
+            n_channels, n_samples, n_classes,
+            sde_config.get("latent_dim", 32),
+            sde_config.get("n_steps", 20),
+        )
+        return clf
+
+    @staticmethod
+    def _create_adaptive_router(config: dict) -> BaseClassifier:
+        """Build an Adaptive Classifier Router from config.
+
+        Creates unfitted CSP+LDA, EEGNet, and Riemannian classifiers via
+        the existing factory methods, then wraps them in an
+        :class:`AdaptiveClassifierRouter`.  The router's ``fit()`` will
+        fit all three base classifiers.
+
+        Reads:
+            - All config sections used by the three base classifiers
+            - ``classification.adaptive_router`` sub-section for routing
+              thresholds and signal parameters
+
+        Args:
+            config: Full project configuration dictionary.
+
+        Returns:
+            Configured :class:`AdaptiveClassifierRouter`.
+        """
+        from .adaptive_router import AdaptiveClassifierRouter
+
+        # Create the three base (unfitted) classifiers
+        csp_lda = ClassifierFactory._create_csp_lda(config)
+        eegnet = ClassifierFactory._create_eegnet(config)
+        riemannian = ClassifierFactory._create_riemannian(config)
+
+        classifiers = {
+            "csp_lda": csp_lda,
+            "eegnet": eegnet,
+            "riemannian": riemannian,
+        }
+
+        cls_config = config.get("classification", {})
+        router_config = cls_config.get("adaptive_router", {})
+
+        clf = AdaptiveClassifierRouter(
+            classifiers=classifiers,
+            config=router_config,
+        )
+        logger.info(
+            "Created AdaptiveClassifierRouter with experts: %s",
+            list(classifiers.keys()),
         )
         return clf
 

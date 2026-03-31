@@ -55,7 +55,7 @@ def parse_args() -> argparse.Namespace:
         "--model-type",
         type=str,
         default=None,
-        choices=["csp_lda", "riemannian", "eegnet"],
+        choices=["csp_lda", "riemannian", "eegnet", "neural_sde", "adaptive_router"],
         help="Override the model type from config.",
     )
     parser.add_argument(
