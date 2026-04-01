@@ -22,6 +22,7 @@ from typing import Optional
 
 import numpy as np
 from mne.decoding import CSP
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.pipeline import Pipeline as SklearnPipeline
 
@@ -61,6 +62,7 @@ class CSPLDAClassifier(BaseClassifier):
         self.n_components: int = n_components
         self.reg: str = reg
         self.shrinkage: str = shrinkage
+        self._calibrator = None
         self._pipeline: SklearnPipeline = SklearnPipeline([
             ("csp", CSP(n_components=self.n_components, reg=self.reg, log=True, norm_trace=True)),
             ("lda", LinearDiscriminantAnalysis(solver="lsqr", shrinkage=self.shrinkage)),
@@ -158,6 +160,31 @@ class CSPLDAClassifier(BaseClassifier):
             )
 
         self._pipeline.fit(X, y)
+
+        # Probability calibration via cross-validation (sigmoid/Platt scaling).
+        # LDA's predict_proba is based on class-conditional Gaussians which
+        # can be poorly calibrated for small BCI datasets. This wraps the
+        # fitted pipeline in a calibrator for more reliable confidence scores,
+        # which improves adaptive routing and SEAL reward quality.
+        n_cv = min(3, min_trials_per_class)
+        if n_cv >= 2:
+            try:
+                self._calibrator = CalibratedClassifierCV(
+                    estimator=self._pipeline,
+                    method="sigmoid",
+                    cv=n_cv,
+                )
+                self._calibrator.fit(X, y)
+                logger.info(
+                    "CSP+LDA probability calibration fitted (cv=%d, sigmoid)",
+                    n_cv,
+                )
+            except Exception as exc:
+                self._calibrator = None
+                logger.debug("Calibration failed (non-critical): %s", exc)
+        else:
+            self._calibrator = None
+
         return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:
@@ -197,6 +224,9 @@ class CSPLDAClassifier(BaseClassifier):
             raise RuntimeError("Classifier has not been fitted yet. Call fit() first.")
 
         X = self._ensure_3d(X)
+        # Use calibrated probabilities when available
+        if hasattr(self, '_calibrator') and self._calibrator is not None:
+            return self._calibrator.predict_proba(X)
         return self._pipeline.predict_proba(X)
 
     def decision_function(self, X: np.ndarray) -> np.ndarray:
