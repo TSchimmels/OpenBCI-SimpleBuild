@@ -52,7 +52,7 @@ features:
   bandpower_channels: [0, 1, 2]  # C3, C4, Cz
 
 classification:
-  # Model type: csp_lda, riemannian, eegnet
+  # Model type: csp_lda, eegnet, riemannian, neural_sde, adaptive_router
   model_type: "csp_lda"
   lda_shrinkage: "auto"
 
@@ -73,6 +73,16 @@ classification:
   riemannian:
     metric: "riemann"
     estimator: "oas"
+
+  # Neural SDE (PyTorch)
+  neural_sde:
+    latent_dim: 32
+    n_steps: 20
+    dt: 0.05
+    device: "auto"
+
+  # Adaptive Router (MoE routing over CSP+LDA, EEGNet, Riemannian)
+  adaptive_router: {}
 
 control:
   # Pure EEG cursor control (no eye tracking)

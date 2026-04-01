@@ -79,11 +79,15 @@ def _resolve_device(device: str) -> "torch.device":
     return torch.device(device)
 
 
+# Conditional base class so module-level class definitions don't crash
+# when PyTorch is not installed.
+_TorchModule = nn.Module if _TORCH_AVAILABLE else object
+
 # ======================================================================
 # Sub-networks for the SDE components
 # ======================================================================
 
-class _Encoder(nn.Module):
+class _Encoder(_TorchModule):
     """Conv1d encoder: maps (n_channels, n_samples) -> latent_dim.
 
     Two Conv1d layers with BatchNorm and ELU activations, followed by
@@ -121,7 +125,7 @@ class _Encoder(nn.Module):
         return self.fc_mu(h), self.fc_logvar(h)
 
 
-class _DriftNet(nn.Module):
+class _DriftNet(_TorchModule):
     """Drift network f(z, t): deterministic dynamics in latent space.
 
     A 2-layer MLP that takes the current latent state and (optionally)
@@ -153,7 +157,7 @@ class _DriftNet(nn.Module):
         return self.net(torch.cat([z, t_expanded], dim=-1))
 
 
-class _DiffusionNet(nn.Module):
+class _DiffusionNet(_TorchModule):
     """Diffusion network g(z, t): state-dependent noise magnitude.
 
     Outputs strictly positive values via softplus to ensure the diffusion
@@ -184,7 +188,7 @@ class _DiffusionNet(nn.Module):
         return self.net(torch.cat([z, t_expanded], dim=-1))
 
 
-class _JumpDetector(nn.Module):
+class _JumpDetector(_TorchModule):
     """Jump detector J(z, t): predicts probability and magnitude of jumps.
 
     Models sudden state transitions (e.g., rest -> motor imagery onset)
@@ -231,7 +235,7 @@ class _JumpDetector(nn.Module):
 # Full Neural SDE Model
 # ======================================================================
 
-class NeuralSDEModel(nn.Module):
+class NeuralSDEModel(_TorchModule):
     """Complete Neural SDE model for EEG classification.
 
     Combines encoder, SDE dynamics (drift + diffusion + jumps), and a

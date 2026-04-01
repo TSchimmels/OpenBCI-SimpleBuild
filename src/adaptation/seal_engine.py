@@ -23,9 +23,8 @@ References:
 from __future__ import annotations
 
 import logging
-import time
 from collections import deque
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import numpy as np
 
@@ -277,20 +276,23 @@ class SEALAdaptationEngine:
             X_new.append(entry["eeg"])
             y_new.append(entry["label"])
 
-        # 2. Negative buffer (known errors — reassign to other classes)
+        # 2. Negative buffer (known errors — use classifier's second-best
+        #    prediction as the correction label to avoid class imbalance)
         for entry in self._negative_buffer:
             wrong_label = entry["wrong_label"]
-            if self._class_names is not None:
-                n_classes = len(self._class_names)
-                # Distribute probability across non-wrong classes
-                # For simplicity, assign to the second-most-likely class
-                # In practice, we don't know the true class, so we use
-                # a soft correction: add the epoch with each non-wrong
-                # class at reduced weight (handled by the blend ratio)
-                for alt_label in range(n_classes):
-                    if alt_label != wrong_label:
-                        X_new.append(entry["eeg"])
-                        y_new.append(alt_label)
+            if self._classifier is not None and entry["eeg"] is not None:
+                try:
+                    proba = self._classifier.predict_proba(
+                        entry["eeg"][np.newaxis]
+                    )[0]
+                    # Zero out the wrong class and pick the next best
+                    proba[wrong_label] = 0.0
+                    correction_label = int(np.argmax(proba))
+                    X_new.append(entry["eeg"])
+                    y_new.append(correction_label)
+                except Exception:
+                    # Fallback: exclude error epochs if classifier fails
+                    pass
 
         if len(X_new) == 0:
             return False

@@ -319,6 +319,19 @@ def main() -> None:
     seal_engine = SEALAdaptationEngine(config)
     seal_engine.set_classifier(classifier, class_names)
 
+    # Optional GFlowNet strategy optimizer for SEAL hyperparameters
+    gflownet_optimizer = None
+    gflownet_enabled = config.get("advanced", {}).get("gflownet_enabled", False)
+    if adaptation_enabled and gflownet_enabled:
+        try:
+            from src.adaptation.gflownet_strategy import GFlowNetSEALOptimizer
+            gflownet_optimizer = GFlowNetSEALOptimizer(
+                config.get("advanced", {})
+            )
+            logger.info("GFlowNet SEAL optimizer ENABLED")
+        except ImportError:
+            logger.warning("GFlowNet requested but PyTorch not available")
+
     if adaptation_enabled:
         logger.info("Self-adaptation ENABLED (ErrP/P300 + SEAL)")
     else:
@@ -377,6 +390,7 @@ def main() -> None:
     status_interval = int(update_rate_hz * 3)  # Print status every ~3 seconds
     total_latency = 0.0
     classifications = 0
+    seal_prev_accuracy = 0.0
     session_start_time = datetime.now(timezone.utc)
 
     try:
@@ -532,6 +546,31 @@ def main() -> None:
                         "SEAL: Model self-adapted (#%d) — confirmed=%d, corrected=%d",
                         stats["n_updates"], stats["n_confirmed"], stats["n_corrected"],
                     )
+                    # GFlowNet: update with reward and propose next config
+                    if gflownet_optimizer is not None:
+                        n_total = stats["n_confirmed"] + stats["n_corrected"]
+                        accuracy_now = stats["n_confirmed"] / max(n_total, 1)
+                        gflownet_optimizer.update(
+                            config_used={
+                                "blend_ratio": seal_engine.blend_ratio,
+                                "update_interval": int(seal_engine.update_interval_s),
+                                "min_samples": seal_engine.min_samples_for_update,
+                                "learning_rate": 1e-4,
+                            },
+                            accuracy_before=seal_prev_accuracy,
+                            accuracy_after=accuracy_now,
+                        )
+                        seal_prev_accuracy = accuracy_now
+                        new_cfg = gflownet_optimizer.propose_config(
+                            accuracy_now, n_total
+                        )
+                        seal_engine.blend_ratio = new_cfg["blend_ratio"]
+                        seal_engine.update_interval_s = float(new_cfg["update_interval"])
+                        seal_engine.min_samples_for_update = new_cfg["min_samples"]
+                        logger.info(
+                            "GFlowNet: updated SEAL config — blend=%.2f, interval=%ds, min_samples=%d",
+                            new_cfg["blend_ratio"], new_cfg["update_interval"], new_cfg["min_samples"],
+                        )
 
             # ----- e. Timing and status -----
             loop_elapsed = time.monotonic() - loop_start
@@ -624,6 +663,11 @@ def main() -> None:
                     session_stats["seal_stats"] = seal_stats
                 except Exception:
                     session_stats["seal_stats"] = None
+                if gflownet_optimizer is not None:
+                    try:
+                        session_stats["gflownet_stats"] = gflownet_optimizer.get_stats()
+                    except Exception:
+                        session_stats["gflownet_stats"] = None
 
             session_path.write_text(
                 json.dumps(session_stats, indent=2, default=str) + "\n"

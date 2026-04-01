@@ -76,11 +76,15 @@ def _resolve_device(device: str) -> "torch.device":
     return torch.device(device)
 
 
+# Conditional base class so module-level class definitions don't crash
+# when PyTorch is not installed.
+_TorchModule = nn.Module if _TORCH_AVAILABLE else object
+
 # ======================================================================
 # EEGNet PyTorch Module
 # ======================================================================
 
-class EEGNetModel(nn.Module):
+class EEGNetModel(_TorchModule):
     """EEGNet architecture (Lawhern et al., 2018).
 
     A compact convolutional network with three blocks:

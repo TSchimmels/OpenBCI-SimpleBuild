@@ -22,7 +22,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import numpy as np
 
 from src.config import load_config
-from src.acquisition.board import BoardManager
 from src.training.recorder import DataRecorder
 from src.training.trainer import ModelTrainer
 from src.classification.pipeline import ClassifierFactory
@@ -53,6 +52,7 @@ def main():
 
     # Load and prepare data
     raw_data, events, metadata = DataRecorder.load(str(data_path))
+    from src.acquisition.board import BoardManager
     board = BoardManager(config)
     sf = board.get_sampling_rate()
     eeg_channels = board.get_eeg_channels()

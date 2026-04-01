@@ -24,7 +24,6 @@ Reference:
 from __future__ import annotations
 
 import logging
-import warnings
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -397,6 +396,9 @@ class CausalChannelDiscovery:
         lr = self.lr
 
         for step in range(self.max_iter):
+            # Clip W to prevent overflow in matmul and matrix exponential
+            W = np.clip(W, -5.0, 5.0)
+
             # --- Reconstruction loss gradient ---
             residual = X - X @ W  # (n, d)
             grad_loss = -(X.T @ residual) / n  # (d, d)
@@ -409,6 +411,9 @@ class CausalChannelDiscovery:
             # grad_h = 2 * W o expm(W o W)^T
             W_sq = W * W
             E = expm(W_sq)
+            # Guard against NaN/inf from numerical overflow
+            if not np.all(np.isfinite(E)):
+                break
             grad_h = 2.0 * W * E.T
 
             # --- Combined gradient ---
@@ -449,9 +454,12 @@ class CausalChannelDiscovery:
             Non-negative scalar. Zero iff W encodes a DAG.
         """
         d = W.shape[0]
-        W_sq = W * W
+        W_clipped = np.clip(W, -5.0, 5.0)
+        W_sq = W_clipped * W_clipped
         try:
             E = expm(W_sq)
+            if not np.all(np.isfinite(E)):
+                return float(d * 100.0)  # large penalty to push W down
             h = np.trace(E) - d
         except (np.linalg.LinAlgError, ValueError):
             # Fallback for singular / ill-conditioned matrices:
