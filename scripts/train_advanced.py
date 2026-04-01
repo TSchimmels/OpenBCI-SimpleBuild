@@ -102,11 +102,9 @@ def main() -> None:
         model_types=args.models,
     )
 
-    # Print report (pipeline already saves artifacts — don't double-save)
+    # Print report (pipeline already saves artifacts internally)
     print(report.format())
     print(f"\nArtifacts saved to: {args.output_dir}")
-    for key, path in saved.items():
-        print(f"  {key}: {path}")
 
 
 if __name__ == "__main__":

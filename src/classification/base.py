@@ -100,12 +100,32 @@ class BaseClassifier(ABC):
     def load(cls, path: str) -> "BaseClassifier":
         """Load trained model from disk.
 
+        Dispatches to the correct loader based on file extension:
+        - ``.pkl`` / ``.joblib`` — scikit-learn models (CSP+LDA, Riemannian)
+        - ``.pt`` / ``.pth`` — PyTorch models (EEGNet, Neural SDE)
+
         Args:
             path: File path
 
         Returns:
             Loaded classifier instance
         """
-        import joblib
+        ext = Path(path).suffix.lower()
+        if ext in (".pt", ".pth"):
+            # Detect model type from checkpoint and dispatch
+            try:
+                import torch
+                checkpoint = torch.load(path, map_location="cpu", weights_only=True)
+            except Exception:
+                import torch
+                checkpoint = torch.load(path, map_location="cpu", weights_only=False)
 
+            if "n_steps" in checkpoint and "dt" in checkpoint:
+                from .neural_sde import NeuralSDEClassifier
+                return NeuralSDEClassifier.load(path)
+            else:
+                from .eegnet import EEGNetClassifier
+                return EEGNetClassifier.load(path)
+
+        import joblib
         return joblib.load(path)
