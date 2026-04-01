@@ -28,11 +28,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import numpy as np
 
 from src.config import load_config
-from src.acquisition.board import BoardManager
 from src.training.recorder import DataRecorder
 from src.training.trainer import ModelTrainer
 from src.classification.pipeline import ClassifierFactory
-from src.classification.base import BaseClassifier
 
 
 def parse_args() -> argparse.Namespace:
@@ -125,15 +123,23 @@ def main() -> None:
         logger.error("No events found in the recording. Cannot train.")
         sys.exit(1)
 
-    # Determine sampling rate and EEG channels.
-    # We create a temporary BoardManager in synthetic mode to query
-    # BrainFlow for the correct channel layout. The actual board type
-    # used during recording should match the config.
+    # Determine sampling rate and EEG channels from .npz metadata or config.
+    # The .npz file saved by collect_training_data.py / DataRecorder.save()
+    # includes sf and eeg_channels, so we don't need the board connected.
     board_cfg = config.get("board", {})
-    temp_board = BoardManager(config)
-    sf = temp_board.get_sampling_rate()
-    eeg_channels = temp_board.get_eeg_channels()
-    logger.info("Using sf=%d Hz, %d EEG channels %s.", sf, len(eeg_channels), eeg_channels)
+    if "sf" in recording_metadata:
+        sf = int(recording_metadata["sf"])
+    else:
+        sf = int(board_cfg.get("sampling_rate_override", 125))
+        logger.warning("No sf in recording metadata; using config value %d Hz.", sf)
+
+    if "eeg_channels" in recording_metadata:
+        eeg_channels = recording_metadata["eeg_channels"]
+    else:
+        # Fall back to 0..channel_count-1
+        n_ch = board_cfg.get("channel_count", 16)
+        eeg_channels = list(range(min(n_ch, raw_data.shape[0])))
+        logger.warning("No eeg_channels in metadata; using first %d channels.", len(eeg_channels))
 
     # Clamp EEG channels to the data dimensions
     max_ch = raw_data.shape[0]
@@ -141,7 +147,7 @@ def main() -> None:
     if not eeg_channels:
         logger.error("No valid EEG channels for the recorded data (max index=%d).", max_ch - 1)
         sys.exit(1)
-    logger.info("EEG channels after clamping: %s", eeg_channels)
+    logger.info("Using sf=%d Hz, %d EEG channels %s.", sf, len(eeg_channels), eeg_channels)
 
     # ------------------------------------------------------------------
     # 3. Create ModelTrainer, prepare data
