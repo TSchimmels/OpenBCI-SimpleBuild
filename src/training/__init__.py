@@ -17,6 +17,9 @@ def __getattr__(name):
     if name == "SubjectProfile":
         from .advanced_pipeline import SubjectProfile
         return SubjectProfile
+    if name == "UncertaintyWeightedLoss":
+        from .uncertainty_weights import UncertaintyWeightedLoss
+        return UncertaintyWeightedLoss
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -27,4 +30,5 @@ __all__ = [
     "JEPAPretrainer",
     "AdvancedTrainingPipeline",
     "SubjectProfile",
+    "UncertaintyWeightedLoss",
 ]
