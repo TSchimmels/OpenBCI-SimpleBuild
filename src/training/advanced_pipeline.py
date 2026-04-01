@@ -913,15 +913,18 @@ class EnsembleBuilder:
 
         # Collect predictions on validation set
         all_proba = []
+        n_classes_detected = None
         for r in model_results:
             try:
                 proba = r.classifier.predict_proba(X_val)
+                if n_classes_detected is None:
+                    n_classes_detected = proba.shape[1]
                 all_proba.append(proba)
             except Exception:
-                # If predict_proba fails, use uniform
-                n_classes = len(np.unique(y_val))
+                # Use first successful model's n_classes for consistent shape
+                nc = n_classes_detected or len(np.unique(y_val))
                 all_proba.append(
-                    np.ones((X_val.shape[0], n_classes)) / n_classes
+                    np.ones((X_val.shape[0], nc)) / nc
                 )
 
         # Weighted average

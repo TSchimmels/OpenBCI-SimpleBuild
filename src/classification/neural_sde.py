@@ -334,12 +334,10 @@ class NeuralSDEModel(_TorchModule):
             jump_prob, jump_mag = self.jump_detector(z, t)
             total_jump_prob = total_jump_prob + jump_prob
 
-            if self.training:
-                # Stochastic: sample Bernoulli for jump events
-                jump_mask = torch.bernoulli(jump_prob)
-            else:
-                # Deterministic at inference: use expected value
-                jump_mask = jump_prob
+            # Use expected value (prob * magnitude) for consistent
+            # train/inference dynamics. Bernoulli sampling causes
+            # qualitative mismatch between training and inference.
+            jump_mask = jump_prob
 
             # Euler-Maruyama update:
             #   z_{t+1} = z_t + f(z,t)*dt + g(z,t)*sqrt(dt)*eps

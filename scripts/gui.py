@@ -568,8 +568,6 @@ class DashboardTab(QWidget):
 class DataCollectionTab(QWidget):
     """Calibration, ERP trainer, JEPA pre-training controls."""
 
-    request_run = pyqtSignal(list, str)  # (cmd_args, description)
-
     def __init__(self, parent=None):
         super().__init__(parent)
         layout = QVBoxLayout(self)
@@ -660,8 +658,6 @@ class DataCollectionTab(QWidget):
 # ---------------------------------------------------------------------------
 class TrainingTab(QWidget):
     """Model training controls with type selection and results display."""
-
-    request_run = pyqtSignal(list, str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
