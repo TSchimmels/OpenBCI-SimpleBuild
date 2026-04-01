@@ -21,7 +21,7 @@ preprocessing:
   notch_freq: 60.0  # 50.0 for Europe
   notch_quality: 30.0
   car_enabled: true
-  laplacian_enabled: false  # Enable for MI-specific enhancement
+  laplacian_enabled: false  # Surface Laplacian instead of CAR (better spatial resolution for MI)
   # MI-specific bandpass (used by BOTH training and real-time)
   mi_bandpass_low: 8.0
   mi_bandpass_high: 30.0
