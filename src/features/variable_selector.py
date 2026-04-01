@@ -15,8 +15,11 @@ The variable selection mechanism computes softmax-weighted importance scores
 over GRN outputs, yielding per-variable explanations for every prediction.
 """
 
+import logging
 import numpy as np
 from typing import Dict, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 try:
     import torch

@@ -73,9 +73,11 @@ def main():
         print(f"  {i + 1:>3} {m['frequency_hz']:>10.2f} {m['growth_rate']:>10.4f} {m['amplitude']:>10.4f}")
 
     if mu_band:
-        print(f"\n  Subject mu band: {mu_band[0]:.1f} - {mu_band[1]:.1f} Hz")
+        # mu_band is (center_freq, bandwidth), not (low, high)
+        center, bw = mu_band
+        print(f"\n  Subject mu band: {center - bw:.1f} - {center + bw:.1f} Hz (center={center:.1f}, bw={bw:.1f})")
         print(f"  (Config default: 8.0 - 12.0 Hz)")
-        if mu_band[0] < 7.0 or mu_band[1] > 13.0:
+        if center - bw < 7.0 or center + bw > 13.0:
             print(f"  ** Consider updating mi_bandpass_low/high in settings.yaml **")
     else:
         print(f"\n  No clear mu-band mode found.")

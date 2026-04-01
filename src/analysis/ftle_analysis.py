@@ -13,10 +13,13 @@ Adapted for EEG time-frequency analysis: treats the wavelet power spectrum as a
 mark transitions between distinct brain states.
 """
 
+import logging
 import numpy as np
 from scipy.ndimage import gaussian_filter, maximum_filter, label
 from scipy.interpolate import RectBivariateSpline
 from typing import List, Dict, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 
 class FTLEAnalyzer:

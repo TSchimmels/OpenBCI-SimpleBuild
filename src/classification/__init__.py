@@ -1,7 +1,7 @@
 """Classification module."""
 
 from .base import BaseClassifier
-from .pipeline import ClassifierFactory
+from .pipeline import ClassifierFactory, RiemannianClassifier
 
 
 def __getattr__(name):
@@ -15,6 +15,6 @@ def __getattr__(name):
 
 
 __all__ = [
-    "BaseClassifier", "ClassifierFactory",
+    "BaseClassifier", "ClassifierFactory", "RiemannianClassifier",
     "AdaptiveClassifierRouter", "NeuralSDEClassifier",
 ]

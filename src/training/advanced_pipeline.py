@@ -279,8 +279,9 @@ class SubjectProfiler:
                     np.var(windowed, axis=2) + 1e-12
                 )  # (n_trials, n_channels)
 
-                n_unique = len(np.unique(labels))
-                n_splits = min(3, min(np.bincount(labels.astype(int))))
+                _, class_counts = np.unique(labels.astype(int), return_counts=True)
+                n_unique = len(class_counts)
+                n_splits = min(3, int(min(class_counts)))
                 if n_splits < 2 or n_unique < 2:
                     continue
 
@@ -966,13 +967,17 @@ class _SoftVotingClassifier:
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
         all_proba = []
+        n_classes = None
         for m in self._models:
             try:
-                all_proba.append(m.predict_proba(X))
+                p = m.predict_proba(X)
+                if n_classes is None:
+                    n_classes = p.shape[1]
+                all_proba.append(p)
             except Exception:
-                all_proba.append(
-                    np.ones((X.shape[0], 5)) / 5
-                )
+                # Use first successful model's n_classes for fallback shape
+                nc = n_classes if n_classes is not None else 5
+                all_proba.append(np.ones((X.shape[0], nc)) / nc)
 
         avg = np.zeros_like(all_proba[0])
         for w, p in zip(self._weights, all_proba):
@@ -1230,7 +1235,10 @@ class AdvancedTrainingPipeline:
         multi_trainer = MultiModelTrainer(
             self._config, n_splits=5
         )
-        model_results = multi_trainer.train_all(X_aug, y_aug, profile)
+        # Cross-validate on CLEAN data (not augmented) to prevent data leakage.
+        # Augmented copies of the same trial in both train/test folds inflate CV accuracy.
+        # The augmenter + augmented data are stored for final model retraining.
+        model_results = multi_trainer.train_all(epochs_clean, labels_clean, profile)
 
         # ---- Phase 4: Ensemble ----
         logger.info("=" * 40)

@@ -449,7 +449,7 @@ class AdaptiveClassifierRouter(BaseClassifier):
                         nn.Linear(5, 16),
                         nn.ReLU(),
                         nn.Linear(16, 3),
-                        nn.Softmax(dim=-1),
+                        # No Softmax here — F.cross_entropy expects raw logits
                     )
 
                 def forward(self, x: "torch.Tensor") -> "torch.Tensor":
