@@ -1213,10 +1213,29 @@ class AdvancedTrainingPipeline:
             epochs_clean.shape[0],
         )
 
-        # ---- Phase 2: Data Preparation ----
+        # ---- Phase 2: Data Preparation (FBCSP + Augmentation) ----
         logger.info("=" * 40)
-        logger.info("PHASE 2: Data Preparation (Augmentation)")
+        logger.info("PHASE 2: Data Preparation (FBCSP + Augmentation)")
         logger.info("=" * 40)
+
+        # Phase 2a: FilterBankCSP feature extraction
+        fbcsp = None
+        fbcsp_features = None
+        try:
+            fbcsp = FilterBankCSP(
+                n_components=6, sf=sf,
+                subject_mu_band=profile.mu_band if profile else None,
+            )
+            fbcsp.fit(epochs_clean, labels_clean)
+            fbcsp_features = fbcsp.transform(epochs_clean)
+            logger.info(
+                "FBCSP: %d bands x %d components = %d features extracted",
+                fbcsp.n_bands, 6, fbcsp_features.shape[1],
+            )
+        except Exception as exc:
+            logger.warning("FBCSP failed (continuing without): %s", exc)
+
+        # Phase 2b: Data augmentation
         augmenter = EEGAugmenter(strength=self._augmentation, sf=sf)
         X_aug, y_aug = augmenter.augment(epochs_clean, labels_clean, profile)
 
@@ -1226,6 +1245,7 @@ class AdvancedTrainingPipeline:
             "multiplier": round(
                 X_aug.shape[0] / max(1, epochs_clean.shape[0]), 1
             ),
+            "fbcsp_features": fbcsp_features.shape[1] if fbcsp_features is not None else 0,
         }
 
         # ---- Phase 3: Multi-Model Training ----

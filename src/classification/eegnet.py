@@ -353,12 +353,22 @@ class EEGNetClassifier(BaseClassifier):
             train_ds, batch_size=self.batch_size, shuffle=True, drop_last=False,
         )
 
-        # --- Build model & optimiser ---
+        # --- Build model & optimiser (per-module LR) ---
         self._model = self._build_model()
-        optimiser = torch.optim.Adam(
-            self._model.parameters(),
-            lr=self.learning_rate,
-            weight_decay=self.weight_decay,
+        lr = self.learning_rate
+        param_groups = [
+            {"params": self._model.conv1.parameters(), "lr": lr},
+            {"params": self._model.bn1.parameters(), "lr": lr},
+            {"params": self._model.depthwise.parameters(), "lr": lr},
+            {"params": self._model.bn2.parameters(), "lr": lr},
+            {"params": self._model.separable_depthwise.parameters(), "lr": lr},
+            {"params": self._model.separable_pointwise.parameters(), "lr": lr},
+            {"params": self._model.bn3.parameters(), "lr": lr},
+            {"params": self._model.classifier.parameters(), "lr": lr * 2.0},
+        ]
+        optimiser = torch.optim.AdamW(param_groups, weight_decay=self.weight_decay)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+            optimiser, T_0=50, T_mult=2, eta_min=lr * 0.01,
         )
         criterion = nn.CrossEntropyLoss()
 
@@ -381,6 +391,7 @@ class EEGNetClassifier(BaseClassifier):
                 loss = criterion(logits, y_batch)
                 loss.backward()
                 optimiser.step()
+                scheduler.step(epoch - 1 + train_total / max(len(train_ds), 1))
 
                 # Max-norm constraint on depthwise conv weights
                 # (Lawhern et al. 2018, Table 2: max_norm=1)

@@ -523,7 +523,10 @@ class AdaptiveClassifierRouter(BaseClassifier):
         self._gating_network.train()
         self._gating_optimizer.zero_grad()
         pred = self._gating_network(feature_vec)
-        loss = F.cross_entropy(pred, target)
+        ce_loss = F.cross_entropy(pred, target)
+        # Router z-loss (ST-MoE, Zoph et al. 2022): prevents logit explosion
+        z_loss = torch.logsumexp(pred, dim=-1).square().mean()
+        loss = ce_loss + 1e-3 * z_loss
         loss.backward()
         self._gating_optimizer.step()
 
