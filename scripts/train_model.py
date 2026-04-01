@@ -112,6 +112,16 @@ def main() -> None:
         logger.error("Data file not found: %s", data_path)
         sys.exit(1)
 
+    # Check for synthetic data flag
+    if "SYNTHETIC" in data_path.name:
+        logger.warning("")
+        logger.warning("=" * 60)
+        logger.warning("  WARNING: Training on SYNTHETIC data!")
+        logger.warning("  Models trained on synthetic data will NOT work")
+        logger.warning("  for real BCI control. This is for pipeline testing only.")
+        logger.warning("=" * 60)
+        logger.warning("")
+
     logger.info("Loading recorded data from %s...", data_path)
     raw_data, events, recording_metadata = DataRecorder.load(str(data_path))
 

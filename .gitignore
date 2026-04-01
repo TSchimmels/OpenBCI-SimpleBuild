@@ -26,6 +26,7 @@ Thumbs.db
 # Data & Models (too large for git)
 data/raw/*.npz
 data/processed/*.npz
+data/demo/
 models/*.pkl
 models/*.pt
 models/*.labels.json

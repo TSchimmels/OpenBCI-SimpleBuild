@@ -74,7 +74,7 @@ _DEFAULT_THRESHOLDS: Dict[str, float] = {
 
 # Default signal parameters
 _DEFAULT_SIGNAL_PARAMS: Dict[str, Any] = {
-    "sampling_rate": 250,           # Hz
+    "sampling_rate": 125,           # Hz (Cyton+Daisy default)
     "artifact_threshold_uv": 100,   # micro-volts peak threshold
     "mu_band": (8.0, 12.0),        # Hz -- mu rhythm
     "signal_band": (1.0, 40.0),    # Hz -- broadband EEG

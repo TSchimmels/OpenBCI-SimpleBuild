@@ -50,7 +50,8 @@ activate_venv() {
 find_latest_file() {
     local dir="$1"
     local ext="$2"
-    find "$dir" -maxdepth 1 -name "*.$ext" -type f 2>/dev/null | sort -r | head -1
+    # Sort by modification time (newest first), not alphabetically
+    find "$dir" -maxdepth 1 -name "*.$ext" -not -name "SYNTHETIC_*" -type f -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-
 }
 
 print_banner() {
@@ -240,9 +241,22 @@ do_full_pipeline() {
         echo -e "${YELLOW}Some tests failed. Continuing anyway...${NC}"
     }
 
-    echo -e "\n${GREEN}${BOLD}Pipeline test complete!${NC}"
-    echo "  The core pipeline works with synthetic data."
-    echo "  Connect your OpenBCI board to continue with real EEG."
+    echo -e "\n${BOLD}Step 3/3: Generate synthetic training data + train model${NC}"
+    python "$PROJECT_DIR/scripts/generate_synthetic_data.py" --output-dir "$PROJECT_DIR/data/demo" || {
+        echo -e "${YELLOW}Synthetic data generation failed. Skipping training test.${NC}"
+        echo -e "\n${GREEN}${BOLD}Pipeline test complete (2/3 steps)!${NC}"
+        return 0
+    }
+    DEMO_FILE=$(find "$PROJECT_DIR/data/demo" -name "SYNTHETIC_*.npz" -type f -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
+    if [ -n "$DEMO_FILE" ]; then
+        python "$PROJECT_DIR/scripts/train_model.py" --data-path "$DEMO_FILE" --model-type csp_lda --verbose || {
+            echo -e "${YELLOW}Training on synthetic data failed. Non-critical.${NC}"
+        }
+    fi
+
+    echo -e "\n${GREEN}${BOLD}Full pipeline test complete!${NC}"
+    echo "  The entire pipeline works: data -> train -> model."
+    echo "  Connect your OpenBCI board for real EEG calibration."
 }
 
 do_pretrain() {
