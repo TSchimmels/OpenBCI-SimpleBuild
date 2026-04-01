@@ -46,6 +46,7 @@ docs/obsidian/
 AUDIT_REPORT.md
 LIMITATIONS.md
 TRAINING_DESIGN.md
+HARNESS_DEEP_DIVE.md
 
 # Test cache
 .pytest_cache/
