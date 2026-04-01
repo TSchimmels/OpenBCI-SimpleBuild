@@ -525,10 +525,28 @@ class NeuralSDEClassifier(BaseClassifier):
             train_ds, batch_size=batch_size, shuffle=True, drop_last=False,
         )
 
-        # --- Build model & optimiser ---
+        # --- Build model & optimiser (per-module LR) ---
         self._model = self._build_model()
-        optimiser = torch.optim.Adam(self._model.parameters(), lr=lr)
+        param_groups = [
+            {"params": self._model.encoder.parameters(), "lr": lr},
+            {"params": self._model.drift.parameters(), "lr": lr * 0.5},
+            {"params": self._model.diffusion.parameters(), "lr": lr * 0.5},
+            {"params": self._model.jump_detector.parameters(), "lr": lr * 0.5},
+            {"params": self._model.classifier.parameters(), "lr": lr * 2.0},
+        ]
+        optimiser = torch.optim.AdamW(param_groups, weight_decay=0.01)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+            optimiser, T_0=50, T_mult=2, eta_min=lr * 0.01,
+        )
         ce_criterion = nn.CrossEntropyLoss()
+
+        # --- Uncertainty-weighted loss balancing ---
+        from src.training.uncertainty_weights import UncertaintyWeightedLoss
+        uw_loss = UncertaintyWeightedLoss(
+            ["ce", "kl", "sparsity"], method="analytical",
+        ).to(self.device)
+        # Add UW params to the optimiser
+        optimiser.add_param_group({"params": uw_loss.parameters(), "lr": lr})
 
         # --- Training loop with early stopping ---
         best_val_loss = float("inf")
@@ -548,11 +566,15 @@ class NeuralSDEClassifier(BaseClassifier):
 
                 logits, mu, logvar, avg_jump_prob = self._model(X_batch)
 
-                # Combined loss: CE + KL regularisation + jump sparsity
+                # Combined loss via uncertainty weighting (auto-balanced)
                 ce_loss = ce_criterion(logits, y_batch)
                 kl_loss = self._kl_divergence(mu, logvar)
                 jump_sparsity = avg_jump_prob.mean()
-                loss = ce_loss + beta * kl_loss + gamma * jump_sparsity
+                loss, _ = uw_loss({
+                    "ce": ce_loss,
+                    "kl": kl_loss,
+                    "sparsity": jump_sparsity,
+                })
 
                 loss.backward()
                 # Gradient clipping for SDE stability
@@ -560,6 +582,7 @@ class NeuralSDEClassifier(BaseClassifier):
                     self._model.parameters(), max_norm=5.0
                 )
                 optimiser.step()
+                scheduler.step(epoch - 1 + train_total / max(len(train_ds), 1))
 
                 train_loss_sum += loss.item() * X_batch.size(0)
                 train_correct += (
@@ -574,9 +597,15 @@ class NeuralSDEClassifier(BaseClassifier):
             self._model.eval()
             with torch.no_grad():
                 val_logits, val_mu, val_logvar, val_jump = self._model(X_val_t)
-                val_ce = ce_criterion(val_logits, y_val_t).item()
-                val_kl = self._kl_divergence(val_mu, val_logvar).item()
-                val_loss = val_ce + beta * val_kl
+                val_ce = ce_criterion(val_logits, y_val_t)
+                val_kl = self._kl_divergence(val_mu, val_logvar)
+                val_jump_sparsity = val_jump.mean()
+                val_total, _ = uw_loss({
+                    "ce": val_ce, "kl": val_kl, "sparsity": val_jump_sparsity,
+                })
+                val_loss = val_total.item()
+                val_ce = val_ce.item()
+                val_kl = val_kl.item()
                 val_acc = (
                     (val_logits.argmax(dim=1) == y_val_t).float().mean().item()
                 )
