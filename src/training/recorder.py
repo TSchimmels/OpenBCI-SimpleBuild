@@ -47,6 +47,7 @@ class DataRecorder:
         self._recording: bool = False
         self._last_raw_data: Optional[np.ndarray] = None
         self._last_events: Optional[List[Dict]] = None
+        self._accumulated_chunks: List[np.ndarray] = []
 
         logger.debug("DataRecorder created (board=%r).", board_manager)
 
@@ -65,10 +66,29 @@ class DataRecorder:
         self._board.get_board_data()
 
         self._events = []
+        self._accumulated_chunks = []
         self._start_time = time.time()
         self._recording = True
 
         logger.info("Recording started at %.3f.", self._start_time)
+
+    def drain(self) -> int:
+        """Drain the BrainFlow ring buffer into Python-side accumulator.
+
+        MUST be called periodically during long recordings to prevent
+        the 45,000-sample ring buffer from overflowing (6 minutes at
+        125 Hz). The Graz paradigm calls this after each trial.
+
+        Returns:
+            Number of new samples drained.
+        """
+        if not self._recording:
+            return 0
+        chunk = self._board.get_board_data()  # destructive read
+        n_new = chunk.shape[1] if chunk.ndim == 2 else 0
+        if n_new > 0:
+            self._accumulated_chunks.append(chunk)
+        return n_new
 
     def add_event(self, label: str) -> None:
         """Record an event marker at the current moment.
@@ -135,18 +155,29 @@ class DataRecorder:
                 "Cannot stop: recording is not active. Call start() first."
             )
 
-        raw_data = self._board.get_board_data()
-        events = list(self._events)
+        # Final drain of remaining buffer data
+        final_chunk = self._board.get_board_data()
+        if final_chunk.ndim == 2 and final_chunk.shape[1] > 0:
+            self._accumulated_chunks.append(final_chunk)
 
+        # Combine all accumulated chunks into one continuous array
+        if self._accumulated_chunks:
+            raw_data = np.hstack(self._accumulated_chunks)
+        else:
+            raw_data = final_chunk
+
+        events = list(self._events)
         self._recording = False
 
         # Cache data so save() can access it after stop()
         self._last_raw_data = raw_data
         self._last_events = events
+        self._accumulated_chunks = []  # free memory
 
         logger.info(
-            "Recording stopped. Captured %d samples, %d events.",
+            "Recording stopped. Captured %d samples (%d chunks), %d events.",
             raw_data.shape[1] if raw_data.ndim == 2 else 0,
+            len(self._accumulated_chunks) + 1,
             len(events),
         )
 

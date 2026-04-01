@@ -227,7 +227,9 @@ def main() -> None:
     # 7. Save model
     # ------------------------------------------------------------------
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    model_filename = f"{model_type}_{timestamp}.pkl"
+    # Use correct extension: .pt for PyTorch models, .pkl for sklearn
+    ext = ".pt" if model_type in ("eegnet", "neural_sde") else ".pkl"
+    model_filename = f"{model_type}_{timestamp}{ext}"
     model_path = output_dir / model_filename
 
     trained_clf.save(str(model_path))

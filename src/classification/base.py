@@ -113,12 +113,8 @@ class BaseClassifier(ABC):
         ext = Path(path).suffix.lower()
         if ext in (".pt", ".pth"):
             # Detect model type from checkpoint and dispatch
-            try:
-                import torch
-                checkpoint = torch.load(path, map_location="cpu", weights_only=True)
-            except Exception:
-                import torch
-                checkpoint = torch.load(path, map_location="cpu", weights_only=False)
+            import torch
+            checkpoint = torch.load(path, map_location="cpu", weights_only=True)
 
             if "n_steps" in checkpoint and "dt" in checkpoint:
                 from .neural_sde import NeuralSDEClassifier

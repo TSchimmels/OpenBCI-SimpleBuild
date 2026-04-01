@@ -147,24 +147,11 @@ def main() -> None:
         raw_data, events = recorder.stop()
         n_events = len(events)
 
-        # Generate timestamped filename
+        # Save via DataRecorder (single source of truth for format)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"session_{timestamp}.npz"
         save_path = output_dir / filename
-
-        # Save with full metadata (sf, eeg_channels) for downstream tools
-        import json
-        import numpy as np
-        save_path.parent.mkdir(parents=True, exist_ok=True)
-        events_json = json.dumps(events)
-        np.savez(
-            str(save_path),
-            data=raw_data,
-            events_json=events_json,
-            sf=np.array(sf),
-            eeg_channels=np.array(board.get_eeg_channels()),
-        )
-
+        recorder.save(str(save_path))
         logger.info("Session saved to %s", save_path)
 
         # ------------------------------------------------------------------
@@ -189,7 +176,19 @@ def main() -> None:
         print("=" * 60)
 
     except KeyboardInterrupt:
-        logger.info("Interrupted by user (Ctrl+C).")
+        logger.info("Interrupted by user (Ctrl+C). Attempting to save data...")
+        # Emergency save — recover whatever data we have
+        try:
+            if recorder._recording:
+                recorder.stop()
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            emergency_path = output_dir / f"session_{timestamp}_PARTIAL.npz"
+            recorder.save(str(emergency_path))
+            logger.info("PARTIAL session saved to %s", emergency_path)
+            print(f"\n  Partial data saved: {emergency_path}")
+        except Exception as save_err:
+            logger.warning("Emergency save failed: %s", save_err)
+
     except Exception:
         logger.exception("An error occurred during data collection.")
         raise

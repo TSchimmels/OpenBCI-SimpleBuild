@@ -210,7 +210,11 @@ class GrazParadigm:
                     if self._check_abort():
                         return
 
-                    # --- 4. Rest (blank screen, random duration) ---
+                    # --- 4. Drain buffer (prevent ring buffer overflow) ---
+                    n_drained = recorder.drain()
+                    logger.debug("Drained %d samples from board buffer.", n_drained)
+
+                    # --- 5. Rest (blank screen, random duration) ---
                     rest_dur = random.uniform(
                         self.rest_duration_min, self.rest_duration_max
                     )
