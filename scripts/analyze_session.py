@@ -77,7 +77,10 @@ def main():
 
     elif "data" in archive:
         data = archive["data"]
-        events = json.loads(str(archive["events_json"]))
+        # Handle numpy string scalar — extract the actual string value
+        events_raw = archive["events_json"]
+        events_str = str(events_raw) if events_raw.ndim == 0 else events_raw.item()
+        events = json.loads(events_str)
         sf = int(archive.get("sf", 125))
         print(f"\n  Format: Continuous recording")
         print(f"  Channels: {data.shape[0]}")

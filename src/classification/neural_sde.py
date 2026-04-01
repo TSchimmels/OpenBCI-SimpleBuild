@@ -509,9 +509,10 @@ class NeuralSDEClassifier(BaseClassifier):
         """
         _require_torch()
 
-        # --- Prepare data ---
+        # --- Prepare data (seeded for reproducibility) ---
         n_trials = X.shape[0]
-        indices = np.random.permutation(n_trials)
+        rng = np.random.RandomState(42)
+        indices = rng.permutation(n_trials)
         n_val = max(1, int(n_trials * validation_fraction))
         val_idx, train_idx = indices[:n_val], indices[n_val:]
 
@@ -787,7 +788,7 @@ class NeuralSDEClassifier(BaseClassifier):
         """
         _require_torch()
 
-        checkpoint = torch.load(path, map_location="cpu", weights_only=False)
+        checkpoint = torch.load(path, map_location="cpu", weights_only=True)
 
         clf = cls(
             n_channels=checkpoint["n_channels"],

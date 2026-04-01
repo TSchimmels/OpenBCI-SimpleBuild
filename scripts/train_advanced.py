@@ -35,10 +35,10 @@ def main() -> None:
         help="Augmentation strength 0.0-1.0 (default: 0.5)",
     )
     parser.add_argument(
-        "--skip-hyperopt",
+        "--hyperopt",
         action="store_true",
-        default=True,
-        help="Skip Optuna hyperparameter optimization (default: skip)",
+        default=False,
+        help="Enable Optuna hyperparameter optimization (default: off)",
     )
     parser.add_argument(
         "--output-dir",
@@ -97,13 +97,13 @@ def main() -> None:
         data_path=str(data_path),
         config=config,
         augmentation=args.augmentation,
-        skip_hyperopt=args.skip_hyperopt,
+        skip_hyperopt=not args.hyperopt,
         output_dir=args.output_dir,
+        model_types=args.models,
     )
 
-    # Print report
+    # Print report (pipeline already saves artifacts — don't double-save)
     print(report.format())
-    saved = report.save(args.output_dir)
     print(f"\nArtifacts saved to: {args.output_dir}")
     for key, path in saved.items():
         print(f"  {key}: {path}")

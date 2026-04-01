@@ -751,8 +751,9 @@ class MultiModelTrainer:
         """Train and evaluate a single model type."""
         from ..classification.pipeline import ClassifierFactory
 
-        # Create classifier
-        model_config = dict(config)
+        # Create classifier (deepcopy to avoid mutating shared config)
+        import copy
+        model_config = copy.deepcopy(config)
         model_config.setdefault("classification", {})
         model_config["classification"]["model_type"] = model_type
         classifier = ClassifierFactory.create(model_config)
@@ -1162,11 +1163,13 @@ class AdvancedTrainingPipeline:
         augmentation: float = 0.5,
         skip_hyperopt: bool = True,
         output_dir: str = "models",
+        model_types: Optional[List[str]] = None,
     ) -> None:
         self._config = config
         self._augmentation = augmentation
         self._skip_hyperopt = skip_hyperopt
         self._output_dir = output_dir
+        self._model_types = model_types
 
     def run(
         self,
@@ -1253,7 +1256,7 @@ class AdvancedTrainingPipeline:
         logger.info("PHASE 3: Multi-Model Training")
         logger.info("=" * 40)
         multi_trainer = MultiModelTrainer(
-            self._config, n_splits=5
+            self._config, n_splits=5, model_types=self._model_types
         )
         # Cross-validate on CLEAN data (not augmented) to prevent data leakage.
         # Augmented copies of the same trial in both train/test folds inflate CV accuracy.

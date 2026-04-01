@@ -257,6 +257,7 @@ class GFlowNetSEALOptimizer:
             flat_idx = torch.multinomial(probs, num_samples=1).item()
 
         config = _flat_to_config(flat_idx)
+        self._last_source = dict(current_config)  # track for TB loss
         logger.debug(
             "GFlowNet proposed config (acc=%.3f, n=%d): %s",
             current_accuracy,
@@ -322,8 +323,8 @@ class GFlowNetSEALOptimizer:
         self._net.train()
         self._optimizer.zero_grad()
 
-        # For single-step: source state is previous best (or default)
-        source = self._best_config if self._best_config != config_used else _flat_to_config(0)
+        # Use the actual source state from propose_config, not a fallback
+        source = getattr(self, '_last_source', None) or _flat_to_config(0)
         target = config_used
         target_flat = _config_to_flat(target)
         source_flat = _config_to_flat(source)
@@ -389,3 +390,43 @@ class GFlowNetSEALOptimizer:
             "best_config": self.get_best_config(),
             "log_Z": float(self._net.log_Z.item()),
         }
+
+    def save(self, path: str) -> None:
+        """Save GFlowNet state to disk for session persistence.
+
+        Saves the flow network weights, optimizer state, history,
+        and best config so training can resume across sessions.
+        """
+        state = {
+            "net_state_dict": self._net.state_dict(),
+            "optimizer_state_dict": self._optimizer.state_dict(),
+            "history": self._history,
+            "best_config": self._best_config,
+            "best_reward": self._best_reward,
+            "reward_ema": self._reward_ema,
+        }
+        torch.save(state, path)
+        logger.info("GFlowNet state saved to %s", path)
+
+    @classmethod
+    def load(cls, path: str, config: Optional[Dict] = None) -> "GFlowNetSEALOptimizer":
+        """Load a previously saved GFlowNet state.
+
+        Args:
+            path: Path to saved state file.
+            config: Optional config overrides.
+
+        Returns:
+            Restored GFlowNetSEALOptimizer.
+        """
+        _require_torch()
+        state = torch.load(path, map_location="cpu", weights_only=True)
+        instance = cls(config)
+        instance._net.load_state_dict(state["net_state_dict"])
+        instance._optimizer.load_state_dict(state["optimizer_state_dict"])
+        instance._history = state.get("history", [])
+        instance._best_config = state.get("best_config")
+        instance._best_reward = state.get("best_reward", -np.inf)
+        instance._reward_ema = state.get("reward_ema")
+        logger.info("GFlowNet state loaded from %s (%d history entries)", path, len(instance._history))
+        return instance

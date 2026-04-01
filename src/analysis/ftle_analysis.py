@@ -136,6 +136,10 @@ class FTLEAnalyzer:
 
         # Normalise velocity so advection stays within the grid
         max_speed = max(np.max(np.abs(grad_t)), np.max(np.abs(grad_f)), 1e-12)
+        if max_speed < 1e-8:
+            # Power field is flat (e.g., synthetic all-zero data) — FTLE is zero
+            logger.warning("Power field is flat (max gradient < 1e-8). FTLE will be zero.")
+            return np.zeros((n_freqs, n_samples))
         grad_t /= max_speed
         grad_f /= max_speed
 

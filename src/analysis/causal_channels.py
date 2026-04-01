@@ -531,47 +531,6 @@ class CausalChannelDiscovery:
         return X
 
     # ------------------------------------------------------------------
-    # Time-lagged cross-correlation (used for initial warm-start)
-    # ------------------------------------------------------------------
-
-    def _time_lagged_xcorr(
-        self, signal_a: np.ndarray, signal_b: np.ndarray
-    ) -> float:
-        """Maximum absolute cross-correlation from *a* to *b* over positive lags.
-
-        A positive lag means *a* leads *b*, consistent with the
-        interpretation that *a* causally influences *b*.
-
-        Args:
-            signal_a: 1-D source signal.
-            signal_b: 1-D target signal.
-
-        Returns:
-            Maximum absolute normalised cross-correlation (0 to 1).
-        """
-        a = signal_a - signal_a.mean()
-        b = signal_b - signal_b.mean()
-
-        norm_a = np.linalg.norm(a)
-        norm_b = np.linalg.norm(b)
-        if norm_a < 1e-12 or norm_b < 1e-12:
-            return 0.0
-
-        a = a / norm_a
-        b = b / norm_b
-
-        max_xcorr = 0.0
-        n = len(a)
-        for lag in range(1, self.max_lag + 1):
-            if lag >= n:
-                break
-            corr = np.abs(np.dot(a[:n - lag], b[lag:]))
-            if corr > max_xcorr:
-                max_xcorr = corr
-
-        return float(max_xcorr)
-
-    # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
 

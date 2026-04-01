@@ -78,7 +78,7 @@ if TORCH_AVAILABLE:
             self.n_channels = n_channels
             self.embed_dim = embed_dim
 
-            # Per-channel temporal convolutions (depthwise: groups=n_channels)
+            # Grouped temporal convolutions (groups=n_channels, 4 ch/group after first layer)
             self.conv1 = nn.Conv1d(
                 n_channels, n_channels * 4,
                 kernel_size=7, padding=3, groups=n_channels,

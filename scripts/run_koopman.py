@@ -37,7 +37,7 @@ def main():
     path = Path(args.path)
     archive = np.load(str(path), allow_pickle=False)
 
-    sf = int(archive.get("sf", 250))
+    sf = int(archive.get("sf", 125))  # Cyton+Daisy default
 
     if "epochs" in archive:
         data = archive["epochs"].mean(axis=0)  # Average across trials
