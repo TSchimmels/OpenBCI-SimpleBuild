@@ -5,8 +5,8 @@
 # Installs all dependencies and validates the environment.
 # Run from the project root:  bash install.sh
 #
-# Supports: Ubuntu/Debian (WSL2), native Linux
-# GPU:      NVIDIA CUDA (auto-detected)
+# Supports: Ubuntu/Debian, Fedora/RHEL/CentOS, Arch/Manjaro, macOS, WSL2
+# GPU:      NVIDIA CUDA (auto-detected), Apple MPS (auto-detected)
 ###############################################################################
 
 set -euo pipefail
@@ -52,9 +52,65 @@ print_ok() {
 ###############################################################################
 print_header "EEG Cursor — Installer"
 
+# ---- OS / distro detection ----
+OS_TYPE="$(uname -s)"
+ARCH="$(uname -m)"
+DISTRO="unknown"
+PKG_MANAGER="none"
+IS_WSL=false
+
+if [[ "$OS_TYPE" == "Darwin" ]]; then
+    DISTRO="macOS"
+    PKG_MANAGER="brew"
+elif [[ "$OS_TYPE" == "Linux" ]]; then
+    # Detect WSL
+    if grep -qiE "(microsoft|wsl)" /proc/version 2>/dev/null; then
+        IS_WSL=true
+    fi
+    # Detect distro
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        case "$ID" in
+            ubuntu|debian|pop|linuxmint|elementary|zorin)
+                DISTRO="$ID"
+                PKG_MANAGER="apt"
+                ;;
+            fedora|rhel|centos|rocky|alma|nobara)
+                DISTRO="$ID"
+                PKG_MANAGER="dnf"
+                # RHEL/CentOS 7 uses yum
+                command -v dnf &>/dev/null || PKG_MANAGER="yum"
+                ;;
+            arch|manjaro|endeavouros|garuda)
+                DISTRO="$ID"
+                PKG_MANAGER="pacman"
+                ;;
+            opensuse*|sles)
+                DISTRO="$ID"
+                PKG_MANAGER="zypper"
+                ;;
+            *)
+                DISTRO="$ID"
+                # Try to detect package manager
+                if command -v apt-get &>/dev/null; then PKG_MANAGER="apt"
+                elif command -v dnf &>/dev/null; then PKG_MANAGER="dnf"
+                elif command -v yum &>/dev/null; then PKG_MANAGER="yum"
+                elif command -v pacman &>/dev/null; then PKG_MANAGER="pacman"
+                elif command -v zypper &>/dev/null; then PKG_MANAGER="zypper"
+                fi
+                ;;
+        esac
+    fi
+fi
+
 echo -e "  Project:  ${BOLD}$PROJECT_DIR${NC}"
 echo -e "  Python:   ${BOLD}$($PYTHON --version 2>&1)${NC}"
-echo -e "  Platform: ${BOLD}$(uname -s) $(uname -m)${NC}"
+echo -e "  Platform: ${BOLD}$OS_TYPE $ARCH${NC}"
+echo -e "  Distro:   ${BOLD}$DISTRO${NC}"
+echo -e "  Pkg Mgr:  ${BOLD}$PKG_MANAGER${NC}"
+if [ "$IS_WSL" = true ]; then
+    echo -e "  WSL:      ${BOLD}yes${NC}"
+fi
 echo ""
 
 # Check Python version >= 3.10
@@ -67,6 +123,18 @@ if [[ "$PY_MAJOR" -lt 3 ]] || [[ "$PY_MAJOR" -eq 3 && "$PY_MINOR" -lt 10 ]]; the
     exit 1
 fi
 print_ok "Python $PY_VERSION"
+
+# Check python3-venv is available
+if ! $PYTHON -m venv --help &>/dev/null; then
+    print_error "python3-venv is required but not installed."
+    case "$PKG_MANAGER" in
+        apt)    echo "  Install with: sudo apt install python3-venv" ;;
+        dnf)    echo "  Install with: sudo dnf install python3-devel" ;;
+        pacman) echo "  Install with: sudo pacman -S python" ;;
+        brew)   echo "  Python from Homebrew includes venv by default" ;;
+    esac
+    exit 1
+fi
 
 ###############################################################################
 # 2. Create virtual environment
@@ -102,18 +170,21 @@ print_ok "pip upgraded"
 ###############################################################################
 print_header "Detecting GPU"
 
-HAS_GPU=false
+GPU_TYPE="none"
 if command -v nvidia-smi &>/dev/null; then
     GPU_NAME=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1)
     GPU_MEM=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader 2>/dev/null | head -1)
     if [ -n "$GPU_NAME" ]; then
-        print_ok "GPU: $GPU_NAME ($GPU_MEM)"
-        HAS_GPU=true
+        print_ok "NVIDIA GPU: $GPU_NAME ($GPU_MEM)"
+        GPU_TYPE="cuda"
     fi
+elif [[ "$OS_TYPE" == "Darwin" ]] && [[ "$ARCH" == "arm64" ]]; then
+    print_ok "Apple Silicon detected (MPS acceleration available)"
+    GPU_TYPE="mps"
 fi
 
-if [ "$HAS_GPU" = false ]; then
-    print_warn "No NVIDIA GPU detected. EEGNet will use CPU (slower but works)."
+if [ "$GPU_TYPE" = "none" ]; then
+    print_warn "No GPU detected. EEGNet will use CPU (slower but works)."
 fi
 
 ###############################################################################
@@ -121,15 +192,23 @@ fi
 ###############################################################################
 print_header "Installing PyTorch"
 
-if [ "$HAS_GPU" = true ]; then
-    print_step "Installing PyTorch with CUDA support..."
-    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124 -q
-    print_ok "PyTorch installed (CUDA)"
-else
-    print_step "Installing PyTorch (CPU only)..."
-    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu -q
-    print_ok "PyTorch installed (CPU)"
-fi
+case "$GPU_TYPE" in
+    cuda)
+        print_step "Installing PyTorch with CUDA support..."
+        pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124 -q
+        print_ok "PyTorch installed (CUDA)"
+        ;;
+    mps)
+        print_step "Installing PyTorch with MPS support (Apple Silicon)..."
+        pip install torch torchvision torchaudio -q
+        print_ok "PyTorch installed (MPS)"
+        ;;
+    *)
+        print_step "Installing PyTorch (CPU only)..."
+        pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu -q
+        print_ok "PyTorch installed (CPU)"
+        ;;
+esac
 
 ###############################################################################
 # 5. Install core dependencies
@@ -177,29 +256,56 @@ pip install moabb -q 2>/dev/null || print_warn "MOABB install failed (optional, 
 print_ok "Benchmarking"
 
 ###############################################################################
-# 6. System dependencies (Linux/WSL)
+# 6. System dependencies (OS-specific)
 ###############################################################################
 print_header "System Dependencies"
 
-# For pygame audio
-if command -v apt-get &>/dev/null; then
-    print_step "Checking system audio libraries for pygame..."
-    if ! dpkg -s libsdl2-mixer-2.0-0 &>/dev/null 2>&1; then
-        print_warn "Installing SDL2 mixer for pygame audio (may need sudo)..."
-        sudo apt-get install -y libsdl2-mixer-2.0-0 libsdl2-2.0-0 2>/dev/null || \
-            print_warn "Could not install SDL2. Paradigm beep may not work."
-    fi
-    print_ok "System audio libraries"
-fi
+install_sys_deps() {
+    case "$PKG_MANAGER" in
+        apt)
+            print_step "Installing system dependencies (apt)..."
+            local pkgs="libsdl2-mixer-2.0-0 libsdl2-2.0-0 libsdl2-dev xdotool xsel xclip"
+            sudo apt-get install -y $pkgs 2>/dev/null || \
+                print_warn "Some system packages failed to install (may need manual install)"
+            print_ok "apt packages installed"
+            ;;
+        dnf|yum)
+            print_step "Installing system dependencies ($PKG_MANAGER)..."
+            local pkgs="SDL2 SDL2-devel SDL2_mixer xdotool xsel xclip python3-tkinter"
+            sudo $PKG_MANAGER install -y $pkgs 2>/dev/null || \
+                print_warn "Some system packages failed to install (may need manual install)"
+            print_ok "$PKG_MANAGER packages installed"
+            ;;
+        pacman)
+            print_step "Installing system dependencies (pacman)..."
+            local pkgs="sdl2 sdl2_mixer xdotool xsel xclip tk"
+            sudo pacman -S --noconfirm --needed $pkgs 2>/dev/null || \
+                print_warn "Some system packages failed to install (may need manual install)"
+            print_ok "pacman packages installed"
+            ;;
+        zypper)
+            print_step "Installing system dependencies (zypper)..."
+            local pkgs="libSDL2-2_0-0 libSDL2_mixer-2_0-0 xdotool xsel xclip"
+            sudo zypper install -y $pkgs 2>/dev/null || \
+                print_warn "Some system packages failed to install (may need manual install)"
+            print_ok "zypper packages installed"
+            ;;
+        brew)
+            print_step "Installing system dependencies (Homebrew)..."
+            brew install sdl2 sdl2_mixer 2>/dev/null || \
+                print_warn "Homebrew packages failed. Install SDL2 manually."
+            # macOS doesn't need xdotool (PyAutoGUI uses native APIs)
+            print_ok "Homebrew packages installed"
+            ;;
+        *)
+            print_warn "Unknown package manager. You may need to install SDL2 and xdotool manually."
+            print_warn "  SDL2 — required for pygame audio (training paradigm beep)"
+            print_warn "  xdotool — required for PyAutoGUI on Linux (cursor control)"
+            ;;
+    esac
+}
 
-# For PyAutoGUI on Linux
-if [[ "$(uname -s)" == "Linux" ]]; then
-    if ! dpkg -s xdotool &>/dev/null 2>&1; then
-        print_warn "Installing xdotool for PyAutoGUI..."
-        sudo apt-get install -y xdotool xsel 2>/dev/null || \
-            print_warn "Could not install xdotool. Mouse control may not work on Linux."
-    fi
-fi
+install_sys_deps
 
 ###############################################################################
 # 7. Create directories
@@ -245,13 +351,20 @@ check_import "SciPy" "scipy"
 echo ""
 
 # GPU validation
-if [ "$HAS_GPU" = true ]; then
+if [ "$GPU_TYPE" = "cuda" ]; then
     CUDA_AVAIL=$(python -c "import torch; print(torch.cuda.is_available())" 2>/dev/null)
     if [ "$CUDA_AVAIL" = "True" ]; then
         CUDA_DEV=$(python -c "import torch; print(torch.cuda.get_device_name(0))" 2>/dev/null)
         print_ok "CUDA available: $CUDA_DEV"
     else
         print_warn "CUDA not available to PyTorch (driver mismatch?)"
+    fi
+elif [ "$GPU_TYPE" = "mps" ]; then
+    MPS_AVAIL=$(python -c "import torch; print(torch.backends.mps.is_available())" 2>/dev/null)
+    if [ "$MPS_AVAIL" = "True" ]; then
+        print_ok "MPS available (Apple Silicon GPU acceleration)"
+    else
+        print_warn "MPS not available to PyTorch (macOS 12.3+ required)"
     fi
 fi
 
