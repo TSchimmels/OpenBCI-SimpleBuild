@@ -170,6 +170,7 @@ class DataRecorder:
         self._recording = False
 
         # Cache data so save() can access it after stop()
+        n_chunks = len(self._accumulated_chunks)
         self._last_raw_data = raw_data
         self._last_events = events
         self._accumulated_chunks = []  # free memory
@@ -177,7 +178,7 @@ class DataRecorder:
         logger.info(
             "Recording stopped. Captured %d samples (%d chunks), %d events.",
             raw_data.shape[1] if raw_data.ndim == 2 else 0,
-            len(self._accumulated_chunks) + 1,
+            n_chunks,
             len(events),
         )
 
