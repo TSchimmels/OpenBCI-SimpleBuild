@@ -221,8 +221,8 @@ pip install brainflow mne numpy scipy scikit-learn -q
 print_ok "Core EEG stack"
 
 # ML / Classification
-print_step "pyRiemann + braindecode..."
-pip install pyriemann braindecode -q
+print_step "pyRiemann..."
+pip install pyriemann -q
 print_ok "ML classifiers"
 
 # Nonlinear features
@@ -338,7 +338,6 @@ check_import "MNE-Python" "mne"
 check_import "scikit-learn" "sklearn"
 check_import "pyRiemann" "pyriemann"
 check_import "PyTorch" "torch"
-check_import "braindecode" "braindecode"
 check_import "antropy" "antropy"
 check_import "PyAutoGUI" "pyautogui"
 check_import "pygame" "pygame"

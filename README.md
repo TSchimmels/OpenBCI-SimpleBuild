@@ -339,10 +339,14 @@ python -m pytest tests/ -v                     # Run unit tests
 ### Launch
 
 ```bash
-bash boot.sh              # Launch the GUI (recommended)
-bash boot.sh --cli        # Interactive terminal menu
-bash boot.sh --test       # Run all tests
-bash boot.sh --install    # Install dependencies + launch
+bash boot.sh              # Interactive menu (recommended)
+bash boot.sh gui          # Launch the 5-tab GUI directly
+bash boot.sh test         # Run synthetic pipeline test
+bash boot.sh calibrate    # Collect training data (Graz paradigm)
+bash boot.sh train        # Train classifier on latest recording
+bash boot.sh run          # Launch cursor control
+bash boot.sh full         # Full pipeline: test + train + verify
+bash boot.sh pytest       # Run unit tests
 ```
 
 ---
