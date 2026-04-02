@@ -100,10 +100,12 @@ def main():
             cv = trainer.cross_validate(clf, epochs, labels, n_splits=args.folds)
             fit_time = time.monotonic() - t0
 
-            # Time single prediction
+            # Time single prediction (refit on full data first)
+            clf_fitted = ClassifierFactory.create(config)
+            clf_fitted.fit(epochs, labels)
             t1 = time.monotonic()
             for _ in range(10):
-                clf.predict(epochs[:1])
+                clf_fitted.predict(epochs[:1])
             pred_time = (time.monotonic() - t1) / 10 * 1000  # ms
 
             results.append({

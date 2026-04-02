@@ -96,7 +96,7 @@ def main():
             ax.set_ylabel("Mode Amplitude")
             ax.set_title("Koopman Spectral Modes")
             if mu_band:
-                ax.axvspan(mu_band[0], mu_band[1], alpha=0.2, color="cyan", label="Mu band")
+                ax.axvspan(center - bw, center + bw, alpha=0.2, color="cyan", label="Mu band")
                 ax.legend()
             plt.tight_layout()
             plt.show()

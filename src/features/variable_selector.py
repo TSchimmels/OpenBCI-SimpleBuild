@@ -269,7 +269,7 @@ class VariableSelector:
                 epoch_loss += loss.item() * xb.size(0)
             if verbose and (epoch + 1) % 10 == 0:
                 avg = epoch_loss / len(dataset)
-                print(f"Epoch {epoch + 1}/{epochs}  loss={avg:.4f}")
+                logger.info("Epoch %d/%d  loss=%.4f", epoch + 1, epochs, avg)
 
         self._fitted = True
         self._importance_cache = None

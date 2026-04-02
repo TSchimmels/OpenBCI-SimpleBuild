@@ -246,7 +246,6 @@ def main() -> None:
     # Load label mapping (must match training)
     label_map_path = model_path.with_suffix('.labels.json')
     if label_map_path.exists():
-        import json
         label_map = json.loads(label_map_path.read_text())
         # Invert: {0: "left_hand", 1: "rest", ...}
         class_names = [None] * len(label_map)
