@@ -63,10 +63,8 @@ CLASS_COLORS = {
     "feet":       "#dcdcaa",
     "tongue":     "#ce9178",
 }
-CHANNEL_NAMES_16 = [
-    "C3", "C4", "Cz", "FC3", "FC4", "CP3", "CP4", "F3",
-    "F4", "P3", "P4", "O1", "O2", "P3p", "FCz", "Fz",
-]
+# Use canonical 16ch names from topography module
+from src.analysis.topography import CHANNEL_NAMES_16
 
 # Dark theme stylesheet — shared across the whole application
 DARK_STYLE = """

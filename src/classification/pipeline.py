@@ -314,7 +314,7 @@ class ClassifierFactory:
         eegnet_config = cls_config.get("eegnet", {})
 
         n_channels: int = board_config.get("channel_count", 16)
-        n_classes: int = train_config.get("n_classes", 3)
+        n_classes: int = train_config.get("n_classes", 5)
 
         # Compute n_samples from sampling rate and classification window.
         # Query the actual board sampling rate via BrainFlow if possible;
@@ -428,7 +428,7 @@ class ClassifierFactory:
         sde_config = cls_config.get("neural_sde", {})
 
         n_channels: int = board_config.get("channel_count", 16)
-        n_classes: int = train_config.get("n_classes", 3)
+        n_classes: int = train_config.get("n_classes", 5)
 
         # Compute n_samples from sampling rate and classification window
         sampling_rate_raw = board_config.get("sampling_rate_override", None)

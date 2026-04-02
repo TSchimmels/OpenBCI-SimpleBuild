@@ -10,7 +10,6 @@ pyriemann>=0.9
 
 # Deep Learning (optional, for EEGNet + Neural SDE + JEPA + GFlowNet)
 torch>=2.0.0
-braindecode>=1.3.0
 # torchsde>=0.2.5  # Optional: advanced SDE solvers for neural_sde.py
 
 # Nonlinear/Chaos Features

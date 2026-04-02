@@ -339,10 +339,10 @@ python -m pytest tests/ -v                     # Run unit tests
 ### Launch
 
 ```bash
-bash launch.sh              # Launch the GUI (recommended)
-bash launch.sh --cli        # Interactive terminal menu
-bash launch.sh --test       # Run all tests
-bash launch.sh --install    # Install dependencies + launch
+bash boot.sh              # Launch the GUI (recommended)
+bash boot.sh --cli        # Interactive terminal menu
+bash boot.sh --test       # Run all tests
+bash boot.sh --install    # Install dependencies + launch
 ```
 
 ---
@@ -351,7 +351,7 @@ bash launch.sh --install    # Install dependencies + launch
 
 ### The GUI (Recommended)
 
-`bash launch.sh` opens a 5-tab control center:
+`bash boot.sh` opens a 5-tab control center:
 
 | Tab | What You Can Do |
 |-----|-----------------|
@@ -363,7 +363,7 @@ bash launch.sh --install    # Install dependencies + launch
 
 ### Terminal Menu
 
-`bash launch.sh --cli` gives you a numbered menu for every operation.
+`bash boot.sh --cli` gives you a numbered menu for every operation.
 
 ### Manual Commands
 
@@ -575,16 +575,19 @@ Enable any module in `config/settings.yaml` under the `advanced:` section.
 
 | Script | Purpose | Usage |
 |--------|---------|-------|
-| `launch.sh` | One-click launcher | `bash launch.sh` |
+| `boot.sh` | Interactive launcher | `bash boot.sh` |
 | `gui.py` | 5-tab control center | `python scripts/gui.py` |
 | `run_eeg_cursor.py` | Real-time cursor control | `--model <path>` |
 | `erp_trainer.py` | Signal exploration + data collection | `--review <file>` for offline |
 | `collect_training_data.py` | Graz paradigm calibration | `--verbose` |
 | `train_model.py` | Train any classifier type | `--model-type <type>` |
+| `train_advanced.py` | 5-phase advanced training pipeline | `--data-path <file>` |
 | `benchmark_models.py` | Compare all classifiers | `--data-path <file>` |
 | `analyze_session.py` | Quick data analysis + plots | `<file> --plot` |
 | `run_koopman.py` | Spectral mode discovery | `<file> --plot` |
 | `run_causal.py` | Causal channel analysis | `<file> --top-k 6` |
+| `jepa_pretrain.py` | Self-supervised EEG pretraining | `--duration 120` |
+| `generate_synthetic_data.py` | Synthetic MI data for testing | `--output-dir data/demo` |
 | `test_synthetic.py` | Pipeline test (no hardware) | `--verbose` |
 
 ---
